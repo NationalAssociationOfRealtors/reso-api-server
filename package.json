@@ -1,7 +1,7 @@
 {
   "name": "reso-api-server",
   "description": "RESO API Server",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "homepage": "http://blogs.crt.realtors.org",
   "author": {
     "name": "Center for REALTOR Technology",
@@ -13,7 +13,7 @@
   },
   "keywords": [
     "MongoDB",
-    "cross-platform",
+    "odata",
     "reso api",
     "reso"
   ],
@@ -43,10 +43,10 @@
   "licenses": [
     {
       "type": "MIT",
-      "url": "http://jaydata.org/licensing"
+      "url": "http://blogs.crt.realtor.org"
     }
   ],
   "readmeFilename": "README.md",
-  "_id": "reso-api-server@0.1.1",
+  "_id": "reso-api-server@0.1.3",
   "_from": "reso-api-server"
 }
