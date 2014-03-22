@@ -2,16 +2,54 @@
 reso-api-server
 =======
 
-The RESO API Server provided a basic server.
+The RESO API Server provides a basic server.
 
 ### Operation
 
-The RESO API Server can be run from the command line with the
-following command:
+The RESO API Server can be run from the command line using a file created to customize operation.  Please follow the procedure outlined in the **Configuration** section to create the file.
 
-```javascript
-var resoServer = require("reso-api-server");
-resoServer();
+### Setup
+
+The following procedure should be followed to setup the server:
+
+1. Install server using NPM:
+
+```
+npm install reso-api-server
+```
+
+2. Create metadata directory:
+
+```
+mkdir metadata
+cd metadata
+cp ../node_modules/reso-api-server/samples/reso_1_2.js .
+```
+
+3. Create a configurarion file or use the sample file supplied by the distribution:
+
+```
+cd ..
+cp ./node_modules/reso-api-server/samples/server.conf .
+```
+
+4. Configure the server using the guide below in the **Configuration** section.
+
+5. If you choose to use external indexing, create a directory to store the index:
+
+```
+mkdir repository 
+```
+6. Create an execution javascript file for node.js or use the test file supplied by the distribution:
+
+```
+cp ./node_modules/reso-api-server/test.js .
+```
+7. Run the server:
+
+
+```
+node test.js
 ```
 
 ### Configuration
