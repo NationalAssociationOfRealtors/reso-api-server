@@ -12,13 +12,13 @@ The RESO API Server can be run from the command line using a file created to cus
 
 The following procedure should be followed to setup the server:
 
-1. Install server using NPM:
++ Install server using NPM:
 
 ```
 npm install reso-api-server
 ```
 
-2. Create metadata directory:
++ Create metadata directory:
 
 ```
 mkdir metadata
@@ -26,26 +26,26 @@ cd metadata
 cp ../node_modules/reso-api-server/samples/reso_1_2.js .
 ```
 
-3. Create a configurarion file or use the sample file supplied by the distribution:
++ Create a configurarion file or use the sample file supplied by the distribution:
 
 ```
 cd ..
 cp ./node_modules/reso-api-server/samples/server.conf .
 ```
 
-4. Configure the server using the guide below in the **Configuration** section.
++ Configure the server using the guide below in the **Configuration** section.
 
-5. If you choose to use external indexing, create a directory to store the index:
++ If you choose to use external indexing, create a directory to store the index:
 
 ```
 mkdir repository 
 ```
-6. Create an execution javascript file for node.js or use the test file supplied by the distribution:
++ Create an execution javascript file for node.js or use the test file supplied by the distribution:
 
 ```
 cp ./node_modules/reso-api-server/test.js .
 ```
-7. Run the server:
++ Run the server:
 
 
 ```
