@@ -16,11 +16,11 @@ resoServer();
 
 ### Configuration
 
-A text configuration file should be located in the root directory of your
-project.  The default name of the file is "service.conf", but this name can
-be overriden when calling the resoServer() method.  A sample of the
-configuration file called "service.conf" can be found in the samples directory
-of this distribution.  
+A text configuration file should be located in the root directory of your project.  The default name of the file is "service.conf", but this name can be overriden when calling the resoServer() method.  A sample of the configuration file called "service.conf" can be found in the samples directory of this distribution.
+
+RESO updates the RESO Data Dictionary periodically. A copy of the latest known RESO Data Dictionary is included in the samples directory, but you should check with the stnandards group for the latest copy.  
+
++ API Service (data supplier parameters)
 
  COMPRESSION: A boolean value that controls whether requested information is compressed.  Compressed is much smaller than normal data but requires more server resources to generate.  If the parameter is set to "true", them data will be compressed if requested.
 
@@ -32,16 +32,30 @@ of this distribution.
 
  SERVER_PROTOCOL: The protocol that the RESO API Server is using.  Valid values are "http" or "https".
 
- INDEX_LOCATION: The path to the file that contains the index that prevents the RESO API Server from maintining duplicate listings.
++ Data Processing 
 
- METADATA_DEFINITION: The path to the file that contains the JSON formatted OData definition file.
+ EXTERNAL_INDEX: A boolean value that indicates whether an external index (recommended) is being used to enfoce uniqueness or the underlying MongoDB database indexing will be used..
 
- CA_CERTIFICATE: The path to the file that contains Certificate Authority (CA) certficates.  This value is only required if the SERVER_PROTOCOL is "https".
+ INDEX_LOCATION: The path to the file that contains the index that prevents the RESO API Server from maintining duplicate listings. The directory should exist before the server is started. This value is only required if the EXTERNAL_INDEX is "true".
+
+ LOG_ENTRY: A boolean value that indicates whether a console log message is generated each time a request is processed..
+
+ METADATA_DEFINITION: The path to the file for the JSON formatted OData definition file that contains RESO Data Dictionary definitions.
+
++ HTTPS Certificates 
+
+ CA_CERTIFICATE: The path to the file that contains a Certificate Authority (CA) certficate.  This value is only required if the SERVER_PROTOCOL is "https".
 
  SERVER_CERTIFICATE: The path to the file that contains the server's certficate.  This value is only required if the SERVER_PROTOCOL is "https".
 
  SERVER_KEY: The path to the file that contains the server's secret key.  This value is only required if the SERVER_PROTOCOL is "https".
 
++ Authentication 
+
+ AUTH_REALM: The text to use for realm if using Digest Authentication. This value is only required if the AUTH_TYPE is "Digest". 
+  
+ AUTH_TYPE: The type of authentication supported by the RESO API Server.  Valid values are "Basic" and "Digest".
+  
 ### License
 
 >The MIT License (MIT)
