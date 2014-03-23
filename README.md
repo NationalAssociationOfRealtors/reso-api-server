@@ -6,7 +6,7 @@ The RESO API Server provides a basic server.
 
 ### Operation
 
-The RESO API Server can be run from the command line using a file created to customize operation.  Please follow the procedure outlined in the **Configuration** section to create the file.
+The RESO API Server can be run from the command line using a file created to customize operation.  Please follow the procedure outlined in the **Configuration** section to create the configuration file.
 
 ### Setup
 
@@ -26,7 +26,7 @@ cd metadata
 cp ../node_modules/reso-api-server/samples/reso_1_2.js .
 ```
 
-+ Create a configurarion file or use the sample file supplied by the distribution:
++ Create a configuration file or use the sample file supplied by the distribution:
 
 ```
 cd ..
@@ -46,7 +46,6 @@ mkdir repository
 cp ./node_modules/reso-api-server/test.js .
 ```
 + Run the server:
-
 
 ```
 node test.js
