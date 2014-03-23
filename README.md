@@ -78,7 +78,7 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
 
  LOG_ENTRY: A boolean value that indicates whether a console log message is generated each time a request is processed..
 
- METADATA_DEFINITION: The path to the file for the JSON formatted OData definition file that contains RESO Data Dictionary definitions.
+ METADATA_DEFINITION: The path to the file for the JSON formatted OData definition file that contains RESO Data Dictionary definitions.  If this parameter is not included, the server will try to look for the package "reso-data-dictionary" which should be included from your root project directory.
 
 + HTTPS Certificates 
 

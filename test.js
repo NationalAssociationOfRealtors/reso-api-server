@@ -57,7 +57,11 @@ function startServer(userConfig) {
 //
 // pre-process with configuration information
 //
-  require(userConfig["METADATA_DEFINITION"]);
+  if (!userConfig.METADATA_DEFINITION) {
+    require("reso-data-dictionary"); 
+  } else {
+    require(userConfig["METADATA_DEFINITION"]);
+  }
   var certificates = {
     key:    fs.readFileSync(userConfig["SERVER_KEY"]),
     cert:   fs.readFileSync(userConfig["SERVER_CERTIFICATE"]),

@@ -1,7 +1,7 @@
 {
   "name": "reso-api-server",
   "description": "RESO API Server",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "homepage": "http://blogs.crt.realtors.org",
   "author": {
     "name": "Center for REALTOR Technology",
@@ -47,6 +47,6 @@
     }
   ],
   "readmeFilename": "README.md",
-  "_id": "reso-api-server@0.1.3",
+  "_id": "reso-api-server@0.1.4",
   "_from": "reso-api-server"
 }
