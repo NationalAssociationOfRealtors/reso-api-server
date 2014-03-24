@@ -7,7 +7,6 @@
 var fs = require("fs")
   , INDEX;
 
-//require("odata-server");
 require("reso-api-server");
 
 (function () {
@@ -33,8 +32,14 @@ console.log("Using configuration file " + aConfigFile);
           if (line.substring(0,1) != "#") {
             var aValue = data[1].trim().toUpperCase();
             switch (aValue) {
+              case "false":
+                aValue = false;
+                break;
               case "FALSE":
                 aValue = false;
+                break;
+              case "true":
+                aValue = true;
                 break;
               case "TRUE":
                 aValue = true;
@@ -43,7 +48,6 @@ console.log("Using configuration file " + aConfigFile);
                 aValue = data[1].trim();
             }
             userConfig[data[0]] = aValue;
-//            userConfig[data[0]] = data[1].trim();
           }
         }
       }
@@ -137,7 +141,6 @@ console.log ("Delete " + reso.resultSize + " object from " + reso.memberName + "
             }
 console.log ("Query " + reso.resultSize + " " + returnText + " from " + reso.memberName + " by " + reso.userName + " sent through " + reso.requestor + " consuming " + (reso.endTime - reso.startTime) + " ms");
             break;
-            break;
           case "POST":
 console.log ("Add " + reso.resultSize + " object to " + reso.memberName + " (" + reso.keyValue + ") by " + reso.userName + " sent through " + reso.requestor + " consuming " + (reso.endTime - reso.startTime) + " ms");
             break;
@@ -145,6 +148,7 @@ console.log ("Add " + reso.resultSize + " object to " + reso.memberName + " (" +
       },
       processWait: userConfig["PROCESS_WAIT"],
       protocol: userConfig["SERVER_PROTOCOL"], 
+      serverName: userConfig["SERVER_NAME"], 
       type: reso 
     }
   );

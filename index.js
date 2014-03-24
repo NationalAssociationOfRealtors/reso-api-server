@@ -32,16 +32,14 @@ $data.ODataServer = function(type, indexLocation, db){
     }
 
     var basicAuthFn = function(req, res, next){
-        if (!config.basicAuth && !config.rootAuth) {
-          return next();
-        }
-        var callback = config.rootAuth ? function(){ connect.basicAuth(config.rootAuth)(req, res, next); } : next;
-        if (typeof config.basicAuth == 'function'){
-            connect.basicAuth(config.basicAuth)(req, res, callback);
-        }else if (typeof config.basicAuth == 'object' && config.basicAuth.username && config.basicAuth.password){
-            connect.basicAuth(config.basicAuth.username, config.basicAuth.password)(req, res, callback);
-        }else { 
-          callback();}
+      if (!config.basicAuth) {
+        return next();
+      }
+      if (typeof config.basicAuth == 'function'){
+        connect.basicAuth(config.basicAuth)(req, res, next);
+      } else {
+        next();
+      }
     };
     
     var digestAuthFn = function(req, res, next){
@@ -77,7 +75,7 @@ $data.ODataServer = function(type, indexLocation, db){
           var timeout_wrapper = function(req) {
             return function() {
               ++waits;
-console.log("Wait " + waits + " times for " + req.reso.startTime);
+//console.log("Wait " + waits + " times for " + req.reso.startTime);
               if (req.reso.resultSize) {
                 clearForProcessing(req);
               } else {
@@ -327,11 +325,12 @@ console.log('!OPTIONS');
 };
 
 $data.createODataServer = function(type, path, port, host, protocol, indexLocation, certificates){
-console.log("");
-console.log("Starting RESO API OData server");
-console.log("");
 
   var config = typeof type === 'object' ? type : {};
+
+console.log("");
+console.log("Starting " + config.serverName);
+console.log("");
 
 //
 // create listener 

@@ -45,6 +45,7 @@ mkdir repository
 ```
 cp ./node_modules/reso-api-server/test.js .
 ```
+
 + Run the server:
 
 ```
@@ -61,7 +62,9 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
 
  COMPRESSION: A boolean value that controls whether requested information is compressed.  Compressed is much smaller than normal data but requires more server resources to generate.  If the parameter is set to "true", them data will be compressed if requested.
 
- SERVER_DOMAIN: The dns name of the the computer that will be running the RESO API Server.
+ SERVER_DOMAIN: The dns name of the computer that will be running the RESO API Server.
+
+ SERVER_NAME: The name to display in the consoe at startup.  Useful for private labelling.
 
  SERVER_PATH: The path of the RESO API service.
 
