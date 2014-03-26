@@ -327,6 +327,14 @@ $data.createODataServer = function(type, path, port, host, protocol, certificate
     bannerText += ".";
 console.log(bannerText);
   }
+  var bannerSpacer = function() {
+    var bannerText = "|";
+    for (var i = 0;i<bannerWidth;i++) {
+      bannerText += "-";
+    }
+    bannerText += "|";
+console.log(bannerText);
+  }
   var bannerLine = function(text) {
     if (!text) {
       text = "";
@@ -352,8 +360,9 @@ console.log(bannerText);
   var config = typeof type === 'object' ? type : {};
 
   bannerTop();
-  bannerLine("Starting " + config.serverName);
-  bannerLine();
+  bannerLine(config.serverName);
+  bannerSpacer();
+  bannerLine("- Initialization has started");
 
 //
 // create listener 
