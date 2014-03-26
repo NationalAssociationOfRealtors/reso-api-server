@@ -69,13 +69,13 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
 
 + Data Processing 
 
- EXTERNAL_INDEX: A boolean value that indicates whether an external index (recommended) is being used to enfoce uniqueness or the underlying MongoDB database indexing will be used..
+ EXTERNAL_INDEX: A boolean value that indicates whether an external index (recommended) is being used to enfoce uniqueness or the underlying MongoDB database indexing will be used.
 
  LOG_ENTRY: A boolean value that indicates whether a console log message is generated each time a request is processed.
 
  METADATA_DEFINITION: The path to the file for the JSON formatted OData definition file that contains RESO Data Dictionary definitions.  If this parameter is not included, the server will try to look for the package "reso-data-dictionary" which should be included from your root project directory.
 
- RESPONSE_LIMIT: The maximum number of objects that can be retrieved at one time.  Defualts to 100.
+ RESPONSE_LIMIT: The maximum number of objects that can be retrieved at one time.  Defaults to 100.
 
 + HTTPS Certificates 
 
