@@ -18,7 +18,7 @@ The following procedure should be followed to setup the server:
 npm install reso-api-server
 ```
 
-+ Create metadata directory:
++ Create metadata directory (optional):
 
 ```
 mkdir metadata
@@ -35,11 +35,6 @@ cp ./node_modules/reso-api-server/samples/server.conf .
 
 + Configure the server using the guide below in the **Configuration** section.
 
-+ If you choose to use external indexing, create a directory to store the index:
-
-```
-mkdir repository 
-```
 + Create an execution javascript file for node.js or use the test file supplied by the distribution:
 
 ```
@@ -64,7 +59,7 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
 
  SERVER_DOMAIN: The dns name of the computer that will be running the RESO API Server.
 
- SERVER_NAME: The name to display in the consoe at startup.  Useful for private labelling.
+ SERVER_NAME: The name to display in the console at startup.  Useful for private labelling.
 
  SERVER_PATH: The path of the RESO API service.
 
@@ -76,11 +71,11 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
 
  EXTERNAL_INDEX: A boolean value that indicates whether an external index (recommended) is being used to enfoce uniqueness or the underlying MongoDB database indexing will be used..
 
- INDEX_LOCATION: The path to the file that contains the index that prevents the RESO API Server from maintining duplicate listings. The directory should exist before the server is started. This value is only required if the EXTERNAL_INDEX is "true".
-
- LOG_ENTRY: A boolean value that indicates whether a console log message is generated each time a request is processed..
+ LOG_ENTRY: A boolean value that indicates whether a console log message is generated each time a request is processed.
 
  METADATA_DEFINITION: The path to the file for the JSON formatted OData definition file that contains RESO Data Dictionary definitions.  If this parameter is not included, the server will try to look for the package "reso-data-dictionary" which should be included from your root project directory.
+
+ RESPONSE_LIMIT: The maximum number of objects that can be retrieved at one time.  Defualts to 100.
 
 + HTTPS Certificates 
 
@@ -92,7 +87,7 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
 
 + Authentication 
 
- AUTH_REALM: The text to use for realm if using Digest Authentication. This value is only required if the AUTH_TYPE is "Digest". 
+ AUTH_REALM: The text to use for realm if using Digest Authentication. If this parameter is not included, the realm will default to the string in the SERVER_NAME parameter. This value is only required if the AUTH_TYPE is "Digest". 
   
  AUTH_TYPE: The type of authentication supported by the RESO API Server.  Valid values are "Basic" and "Digest".
   

@@ -1,7 +1,7 @@
 {
   "name": "reso-api-server",
   "description": "RESO API Server",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "homepage": "http://blogs.crt.realtors.org",
   "author": {
     "name": "Center for REALTOR Technology",
@@ -25,7 +25,7 @@
     "url": ">0.0.1",
     "connect": ">2.0.0",
     "mongodb": ">1.0.0",
-    "jaydata-reso": ">=0.0.1",
+    "jaydata-reso": ">=1.0.4",
     "just.randomstring": ">=0.1.1"
   },
   "contributors": [
@@ -46,7 +46,5 @@
       "url": "http://blogs.crt.realtor.org"
     }
   ],
-  "readmeFilename": "README.md",
-  "_id": "reso-api-server@0.1.6",
-  "_from": "reso-api-server"
+  "readmeFilename": "README.md"
 }

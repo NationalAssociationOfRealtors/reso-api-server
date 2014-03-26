@@ -1,4 +1,5 @@
 require('jaydata-reso');
+
 var fs = require('fs')
   , crypto = require("crypto")
   , randomstring = require("just.randomstring")
@@ -6,7 +7,7 @@ var fs = require('fs')
 
 window.DOMParser = require('xmldom').DOMParser;
 
-$data.ODataServer = function(type, indexLocation, db){
+$data.ODataServer = function(type, db){
 
     var connect = require('connect');
     var domain = require('domain');
@@ -23,13 +24,6 @@ $data.ODataServer = function(type, indexLocation, db){
    
     var serviceType = $data.Class.defineEx(type.fullName + '.Service', [type, $data.ServiceBase]);
     serviceType.annotateFromVSDoc();
-
-//
-// read index file
-//
-    if (config.externalIndex) {
-      INDEX = readIndexFile(indexLocation);
-    }
 
     var basicAuthFn = function(req, res, next){
       if (!config.basicAuth) {
@@ -168,6 +162,7 @@ console.log("Consider increading PROCESS_WAIT configuration value");
     
     return function(req, res, next){
         var self = this;
+
 //
 // hide recursive calls that are denoted with an endpoint  "/$batch"
 //
@@ -223,7 +218,6 @@ console.log('!OPTIONS');
                     errorFn(req, res, next, function(){
 
                       req.reso = {
-                        "indexFileName" : indexLocation, 
                         "externalIndex" : config.externalIndex,
                         "startTime": startStamp.getTime(),
                         "userName" : config.provider.user 
@@ -259,7 +253,6 @@ console.log('!OPTIONS');
                     errorFn(req, res, next, function(){
 
                       req.reso = {
-                        "indexFileName" : indexLocation, 
                         "externalIndex" : config.externalIndex, 
                         "startTime": startStamp.getTime(),
                         "userName" : config.provider.user 
@@ -294,7 +287,6 @@ console.log('!OPTIONS');
                   errorFn(req, res, next, function(){
 
                       req.reso = {
-                        "indexFileName" : indexLocation, 
                         "externalIndex" : config.externalIndex, 
                         "startTime": startStamp.getTime(),
                         "userName" : config.provider.user 
@@ -324,63 +316,99 @@ console.log('!OPTIONS');
     };
 };
 
-$data.createODataServer = function(type, path, port, host, protocol, indexLocation, certificates){
+$data.createODataServer = function(type, path, port, host, protocol, certificates) {
 
+  var bannerWidth = 78;
+  var bannerTop = function() {
+    var bannerText = ".";
+    for (var i = 0;i<bannerWidth;i++) {
+      bannerText += "-";
+    }
+    bannerText += ".";
+console.log(bannerText);
+  }
+  var bannerLine = function(text) {
+    if (!text) {
+      text = "";
+    }
+    var bannerText = "| " + text;
+    for (var i = 0;i<bannerWidth;i++) {
+      if (i > text.length) {
+        bannerText += " ";
+      }
+    }
+    bannerText += "|";
+console.log(bannerText);
+  }
+  var bannerBottom = function() {
+    var bannerText = "'";
+    for (var i = 0;i<bannerWidth;i++) {
+      bannerText += "-";
+    }
+    bannerText += "'";
+console.log(bannerText);
+  }
+  
   var config = typeof type === 'object' ? type : {};
 
-console.log("");
-console.log("Starting " + config.serverName);
-console.log("");
+  bannerTop();
+  bannerLine("Starting " + config.serverName);
+  bannerLine();
 
 //
 // create listener 
 //
-  var connect = require('connect');
-  var app;
-  if (protocol == "http" ) {
-    app = connect();
-  } else {
-    var serverCertificates = config.certificates || certificates;
-    app = connect(serverCertificates);
-  }
-  var serverPath = config.path || path || "/";
-  var serverIndexLocation = config.indexLocation || indexLocation || "./repository";
+  var startListener = function() {
+    var connect = require('connect');
+    var app;
+    if (protocol == "http" ) {
+      app = connect();
+    } else {
+      var serverCertificates = config.certificates || certificates;
+      app = connect(serverCertificates);
+    }
+    var serverPath = config.path || path || "/";
 
-  if (config.compression) {
-    app.use(connect.compress());
-  }
+    if (config.compression) {
+      app.use(connect.compress());
+    }
 
-  app.use(serverPath, $data.ODataServer(type, serverIndexLocation));
-  var serverHost = config.host || host;
-  var serverPort = config.port || port || 80;
-  var serverProtocol = config.protocol || protocol || "http";
-  app.listen(serverPort, serverHost);
-console.log("Listening on " + serverProtocol + "://" + serverHost + ":" + serverPort + serverPath);
+    app.use(serverPath, $data.ODataServer(type));
+    var serverHost = config.host || host;
+    var serverPort = config.port || port || 80;
+    var serverProtocol = config.protocol || protocol || "http";
+    app.listen(serverPort, serverHost);
+    bannerLine();
+    bannerLine("Listening on " + serverProtocol + "://" + serverHost + ":" + serverPort + serverPath);
+    bannerBottom();
+  }
 
 //
 // authentication
 //
   switch(config.authType) {
     case "Basic":
-console.log("Supports " + config.authType + " Authentication");
+      bannerLine("- Supports " + config.authType + " Authentication");
       break;
     case "Digest":
-console.log("Supports " + config.authType + " Authentication");
-console.log("- Digest realm: " + config.authRealm);
-console.log("- Digest nonce: " + nonce);
+      config.authRealm = config.authRealm || config.serverName;
+      bannerLine("- Supports " + config.authType + " Authentication");
+      bannerLine("- Digest realm: " + config.authRealm);
+      bannerLine("- Digest nonce: " + nonce);
       break;
     default:
-console.log("No Authentication is being used");
+      bannerLine("- No Authentication is being used");
   }
 
 //
-// authentication
+// compression 
 //
   if (config.compression) {
-console.log("Output will ALWAYS be compressed if the requestor can handle compression");
+    bannerLine("- Output will ALWAYS be compressed if the requestor can handle compression");
   } else {
-console.log("Output will NEVER be compressed");
+    bannerLine("| - Output will NEVER be compressed");
   }
+
 //
 // indexing 
 //
@@ -388,45 +416,67 @@ console.log("Output will NEVER be compressed");
   var db = new Db("reso", new Server("127.0.0.1", 27017), { safe : false } );
   db.open(function(err, db) {
     if (err) throw err;
-    var collection = db.collection("Property");
-    if (config.externalIndex) {
-console.log("Uniqueness enforced with external index file: " + serverIndexLocation);
-console.log("- Looking for built-in elements that cause problems for the external index.");
-//      collection.dropIndex({"ListingId":1}, function(err, result) {
-      db.dropIndex("Property", {"ListingId":1}, function(err, result) {
-        if (err) {
-console.log("- No issues encountered");
-        } else {
-console.log("- Built-in index dropped");
-        }
-        db.close();
-console.log("");
-      }); // collection.dropIndex
-    } else {
-console.log("Uniqueness enforced with built-in index");
-//      collection.ensureIndex({"ListingId":1}, {unique:true, background:true, dropDups:true, w:1}, function(err, indexName) {
-//      collection.ensureIndex({"ListingId":1}, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
-//      db.ensureIndex("Property", {"ListingId":1}, {unique:true, background:true, dropDups:true, w:1}, function(err, indexName) {
-      db.ensureIndex("Property", {"ListingId":1}, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
-        if (err) throw err;
-        if (!indexName) {
-console.log("- Built-in index was not found and was automatically created");
-        }
-// Fetch full index information
-//        collection.indexInformation({full:true}, function(err, indexInformation) {
-      db.indexInformation("Property", {full:true}, function(err, indexInformation) {
-//console.dir(indexInformation);
-          for (var i in indexInformation) {
-            var anIndex = indexInformation[i];
-            if (anIndex.name != "_id_") {
-console.log("- Built-in index name: " + anIndex.name);
-            }
-          }
-          db.close();
-console.log("");
-        });
-      }); // collection.ensureIndex
+    var indexList = {
+      "Property": {ListingId:1}
     }
+    for (cName in indexList) {
+      var cObject = indexList[cName];
+      bannerLine("- Indexing " + cName);
+      var collection = db.collection(cName);
+      if (config.externalIndex) {
+        bannerLine("  > Uniqueness enforced with an in-memory index");
+//        collection.dropIndex({ListingId:1}, function(err, result) {
+//        collection.dropIndex({"ListingId":1}, function(err, result) {
+        collection.dropIndex(cObject, function(err, result) {
+//        db.dropIndex(cName, {"ListingId":1}, function(err, result) {
+          if (err) {
+//            bannerLine("  > No issues encountered");
+          } else {
+            bannerLine("  > Conflicting built-in index was dropped");
+          }
+
+//
+// scan collection
+//
+          collection.find({},{ListingId: true}).toArray(function(err, docs) {
+            if (err) throw err;
+            INDEX = [];
+            for (var i in docs) {
+              INDEX[i] = docs[i].ListingId;
+            }
+            bannerLine("  > An in-memory index for " + cName + " has been created with " + docs.length + " items");
+            db.close();
+            startListener();
+          });
+        }); // collection.dropIndex
+
+      } else {
+        bannerLine("  > Uniqueness enforced with built-in index");
+        collection.ensureIndex(cObject, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
+//        collection.ensureIndex({ListingId:1}, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
+//        collection.ensureIndex({"ListingId":1}, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
+//        collection.ensureIndex({"ListingId":1}, {unique:true, background:true, dropDups:true, w:1}, function(err, indexName) {
+//        db.ensureIndex(cName", {"ListingId":1}, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
+          if (err) throw err;
+          if (!indexName) {
+            bannerLine("  > Built-in index for " + cName + " was not found and was automatically created");
+          }
+// Fetch full index information
+          collection.indexInformation({full:true}, function(err, indexInformation) {
+//          db.indexInformation(cName, {full:true}, function(err, indexInformation) {
+//console.dir(indexInformation);
+            for (var i in indexInformation) {
+              var anIndex = indexInformation[i];
+              if (anIndex.name != "_id_") {
+                bannerLine("  > Built-in index name for " + cName + " is " + anIndex.name);
+              }
+            }
+            db.close();
+            startListener();
+          });
+        }); // collection.ensureIndex
+      }
+    } // indexDriver
   }); // db.open
 
 };
