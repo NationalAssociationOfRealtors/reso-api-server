@@ -21,6 +21,7 @@ $data.ODataServer = function(type, db){
     config.provider.responseLimit = config.provider.responseLimit || config.responseLimit || 100;
     config.provider.user = config.provider.user || config.user;
     config.provider.checkPermission = config.provider.checkPermission || config.checkPermission;
+    config.provider.externalIndex = config.externalIndex;
    
     var serviceType = $data.Class.defineEx(type.fullName + '.Service', [type, $data.ServiceBase]);
     serviceType.annotateFromVSDoc();
@@ -75,7 +76,7 @@ $data.ODataServer = function(type, db){
               } else {
                 if (waits > 2) {
 console.log("Shutdown Wait for " + req.reso.startTime);
-console.log("Consider increading PROCESS_WAIT configuration value");
+console.log("Consider increasing PROCESS_WAIT configuration value");
                   req.reso.resultSize = 1;
                   req.reso.keyValue = "unknown";
                   clearForProcessing(req);
@@ -172,7 +173,7 @@ console.log("Consider increading PROCESS_WAIT configuration value");
           if (config.logEntry) {
 console.log(startStamp + " " + "Request " + req.method + " " + endPointURL + " received from " + req.connection.remoteAddress); 
           }     
-        }     
+        }
         if (config.provider.checkPermission){
             Object.defineProperty(req, 'checkPermission', {
                 value: config.provider.checkPermission.bind(req),
