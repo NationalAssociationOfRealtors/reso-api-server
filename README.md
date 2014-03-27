@@ -90,7 +90,17 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
  AUTH_REALM: The text to use for realm if using Digest Authentication. If this parameter is not included, the realm will default to the string in the SERVER_NAME parameter. This value is only required if the AUTH_TYPE is "Digest". 
   
  AUTH_TYPE: The type of authentication supported by the RESO API Server.  Valid values are "Basic" and "Digest".
+
   
+### Avoiding Duplicate Records 
+
+The underlying MongoDB database does a good job of avoiding duplicates if you are depending on the GUID attached to reach record.  Real Estate listings are coded, but not with a GUID approach.  A listing database relies on a different "key".  In the case of this server, listing records have a key of "ListingId".  Since the key being used is not GUID, there  re special mechanisms used to control duplicates.
+
+The first approach to avoid duplicates is to create an index that enforces uniquenes.  In order to use this approach, set the configuration EXTERNAL_INDEX to "false".  This approach takes advantage of the built-in capabilites of MongoDB.
+
+An alternative to preventing duplicates with a MongoDB index is to create an index in-memory.  Upon startup, the database is scaned an an in-memory index is created.   In order to use this approach, set the configuration EXTERNAL_INDEX to "true". Although this approach performes better than the MongoDB index approach, manipulation of the database (from the command line for instance) will corrupt the in-memory index.
+
+
 ### License
 
 >The MIT License (MIT)
