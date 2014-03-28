@@ -403,8 +403,8 @@ console.log(bannerText);
     case "Digest":
       config.authRealm = config.authRealm || config.serverName;
       bannerLine("- Supports " + config.authType + " Authentication");
-      bannerLine("- Digest realm: " + config.authRealm);
-      bannerLine("- Digest nonce: " + nonce);
+      bannerLine("  > Digest realm: " + config.authRealm);
+      bannerLine("  > Digest nonce: " + nonce);
       break;
     default:
       bannerLine("- No Authentication is being used");
@@ -416,7 +416,7 @@ console.log(bannerText);
   if (config.compression) {
     bannerLine("- Output will ALWAYS be compressed if the requestor can handle compression");
   } else {
-    bannerLine("| - Output will NEVER be compressed");
+    bannerLine("- Output will NEVER be compressed");
   }
 
 //
@@ -435,13 +435,9 @@ console.log(bannerText);
       var collection = db.collection(cName);
       if (config.externalIndex) {
         bannerLine("  > Uniqueness enforced with an in-memory index");
-//        collection.dropIndex({ListingId:1}, function(err, result) {
-//        collection.dropIndex({"ListingId":1}, function(err, result) {
         collection.dropIndex(cObject, function(err, result) {
-//        db.dropIndex(cName, {"ListingId":1}, function(err, result) {
-          if (err) {
-//            bannerLine("  > No issues encountered");
-          } else {
+//        db.dropIndex(cName, cObject, function(err, result) {
+          if (!err) {
             bannerLine("  > Conflicting built-in index was dropped");
           }
 
@@ -463,10 +459,7 @@ console.log(bannerText);
       } else {
         bannerLine("  > Uniqueness enforced with built-in index");
         collection.ensureIndex(cObject, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
-//        collection.ensureIndex({ListingId:1}, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
-//        collection.ensureIndex({"ListingId":1}, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
-//        collection.ensureIndex({"ListingId":1}, {unique:true, background:true, dropDups:true, w:1}, function(err, indexName) {
-//        db.ensureIndex(cName", {"ListingId":1}, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
+//        db.ensureIndex(cName", cObject, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
           if (err) throw err;
           if (!indexName) {
             bannerLine("  > Built-in index for " + cName + " was not found and was automatically created");
@@ -474,7 +467,6 @@ console.log(bannerText);
 // Fetch full index information
           collection.indexInformation({full:true}, function(err, indexInformation) {
 //          db.indexInformation(cName, {full:true}, function(err, indexInformation) {
-//console.dir(indexInformation);
             for (var i in indexInformation) {
               var anIndex = indexInformation[i];
               if (anIndex.name != "_id_") {
