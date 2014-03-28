@@ -360,10 +360,18 @@ console.log(bannerText);
   
   var config = typeof type === 'object' ? type : {};
 
+  var projectName = "RESO API Server";
+  config.serverName = config.serverName || projectName;
+
   bannerTop();
-  bannerLine(config.serverName);
+  var packageName = projectName + " Version: " + require('./package').version;
+  if (config.serverName == projectName ) {
+    bannerLine(packageName);
+  } else {
+    bannerLine(config.serverName);
+    bannerLine("(" + packageName + ")");
+  } 
   bannerSpacer();
-  bannerLine("- Initialization has started");
 
 //
 // create listener 
