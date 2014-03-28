@@ -364,7 +364,7 @@ console.log(bannerText);
   config.serverName = config.serverName || projectName;
 
   bannerTop();
-  var packageName = projectName + " Version: " + require('./package').version;
+  var packageName = projectName + " Version " + require('./package').version;
   if (config.serverName == projectName ) {
     bannerLine(packageName);
   } else {
