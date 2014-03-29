@@ -570,9 +570,14 @@ function digestAuth(callback, req, res, realm, next) {
 // construct a response
 //
 //  var A1 = username + ":" + realm + ":" + password;
+//console.log(A1);
 //  var HA1 = md5(A1);
 //  var A2 = req.method + ":" + uri;
+//console.log(A2);
 //  var HA2 = md5(A2);
+//  var check_response = HA1 + ":" + nonce + ":" + nc + ":" + cnonce + ":" + qop + ":" + HA2;
+//console.log(check_response);
+//  check_response = md5(check_response);
 
   var HA1 = md5(username + ":" + realm + ":" + password);
   var HA2 = md5(req.method + ":" + uri);
