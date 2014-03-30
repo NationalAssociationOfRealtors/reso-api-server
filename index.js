@@ -322,7 +322,7 @@ $data.createODataServer = function(type, path, port, host, protocol, certificate
   var bannerWidth = 78;
   var bannerTop = function() {
     var bannerText = ".";
-    for (var i = 0;i<bannerWidth;i++) {
+    for (var i = bannerWidth; i--;) {
       bannerText += "-";
     }
     bannerText += ".";
@@ -330,7 +330,7 @@ console.log(bannerText);
   }
   var bannerSpacer = function() {
     var bannerText = "|";
-    for (var i = 0;i<bannerWidth;i++) {
+    for (var i = bannerWidth; i--;) {
       bannerText += "-";
     }
     bannerText += "|";
@@ -341,17 +341,15 @@ console.log(bannerText);
       text = "";
     }
     var bannerText = "| " + text;
-    for (var i = 0;i<bannerWidth;i++) {
-      if (i > text.length) {
-        bannerText += " ";
-      }
+    for (var i = (bannerWidth-text.length-1); i--;) {
+      bannerText += " ";
     }
     bannerText += "|";
 console.log(bannerText);
   }
   var bannerBottom = function() {
     var bannerText = "'";
-    for (var i = 0;i<bannerWidth;i++) {
+    for (var i = bannerWidth; i--;) {
       bannerText += "-";
     }
     bannerText += "'";
@@ -530,7 +528,7 @@ function digestAuth(callback, req, res, realm, next) {
   var nc;
   var cnonce; 
   var length = parts.length;   
-  for (var i = 0; i < length; i++) {
+  for (var i = length; i--;) {
     var pieces = parts[i].split("=");
     switch(pieces[0].trim()) {
       case "username":
