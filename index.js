@@ -453,7 +453,7 @@ console.log(bannerText);
           collection.find({},{ListingId: true}).toArray(function(err, docs) {
             if (err) throw err;
             INDEX = [];
-            for (var i in docs) {
+            for (var i = docs.length; i--;) {
               INDEX[i] = docs[i].ListingId;
             }
             bannerLine("  > An in-memory index for " + cName + " has been created with " + docs.length + " items");
@@ -473,7 +473,7 @@ console.log(bannerText);
 // Fetch full index information
           collection.indexInformation({full:true}, function(err, indexInformation) {
 //          db.indexInformation(cName, {full:true}, function(err, indexInformation) {
-            for (var i in indexInformation) {
+            for (var i = indexInformation.length; i--;) {
               var anIndex = indexInformation[i];
               if (anIndex.name != "_id_") {
                 bannerLine("  > Built-in index name for " + cName + " is " + anIndex.name);
@@ -527,8 +527,7 @@ function digestAuth(callback, req, res, realm, next) {
   var qop;
   var nc;
   var cnonce; 
-  var length = parts.length;   
-  for (var i = length; i--;) {
+  for (var i = parts.length; i--;) {
     var pieces = parts[i].split("=");
     switch(pieces[0].trim()) {
       case "username":
