@@ -26,7 +26,7 @@ $data.ODataServer = function(type, db){
     var serviceType = $data.Class.defineEx(type.fullName + '.Service', [type, $data.ServiceBase]);
     serviceType.annotateFromVSDoc();
 
-    var basicAuthFn = function(req, res, next){
+    function basicAuthFn(req, res, next){
       if (!config.basicAuth) {
         return next();
       }
@@ -37,7 +37,7 @@ $data.ODataServer = function(type, db){
       }
     };
     
-    var digestAuthFn = function(req, res, next){
+    function digestAuthFn(req, res, next){
       if (!config.digestAuth) {
         return next();
       }
@@ -48,10 +48,10 @@ $data.ODataServer = function(type, db){
       }
     };
 
-    var postProcessFn = function(req, res){
+    function postProcessFn(req, res){
       if (config.postProcess) {
         if (typeof config.postProcess == 'function'){
-          var clearForProcessing = function(req) {
+          function clearForProcessing(req) {
             if (!req.reso.memberName) {
               req.reso.memberName = "System";
             }
@@ -67,7 +67,7 @@ $data.ODataServer = function(type, db){
 //
           var waits = 0;
           var waitTime = config.processWait;
-          var timeout_wrapper = function(req) {
+          function timeout_wrapper(req) {
             return function() {
               ++waits;
 //console.log("Wait " + waits + " times for " + req.reso.startTime);
@@ -115,72 +115,71 @@ console.log("Consider increasing PROCESS_WAIT configuration value");
     };
 */
     
-    var queryFn = function(req, res, next){
-        if (!req.query){
-            connect.query()(req, res, next);
-        }else next();
+    function queryFn(req, res, next){
+      if (!req.query) {
+        connect.query()(req, res, next);
+      } else next();
     };
 
-    var bodyFn = function(req, res, next){
-        if (!req.body){
-          connect.json()(req, res, function(err){
-            if (err) return next(err);
-            connect.urlencoded()(req, res, next);
-          });
-
-        }else next();
-    };
-    
-    var simpleBodyFn = function(req, res, next){
-        $data.JayService.OData.Utils.simpleBodyReader()(req, res, next);
-    };
-    
-    var errorFn = function(req, res, next, callback){
-        var reqd = domain.create();
-        reqd.add(req);
-        reqd.add(res);
-        reqd.add(next);
-        reqd.on('error', function(err){
-            try{
-                console.error(err);
-                next(err);
-            }catch (derr){
-                console.error('Error sending 500', derr, req.url);
-                reqd.dispose();
-            }
+    function bodyFn(req, res, next){
+      if (!req.body){
+        connect.json()(req, res, function(err){
+          if (err) return next(err);
+          connect.urlencoded()(req, res, next);
         });
-        reqd.run(function(){
-            callback();
-        });
+      } else next();
     };
     
-    var errorHandlerFn = function(err, req, res, next){
-        if (config.errorHandler){
-            connect.errorHandler.title = typeof config.errorHandler == 'string' ?  config.errorHandler : config.provider.databaseName;
-            connect.errorHandler()(err, req, res, next);
-        }else next(err);
+    function simpleBodyFn(req, res, next) {
+      $data.JayService.OData.Utils.simpleBodyReader()(req, res, next);
+    };
+    
+    function errorFn(req, res, next, callback) {
+      var reqd = domain.create();
+      reqd.add(req);
+      reqd.add(res);
+      reqd.add(next);
+      reqd.on('error', function(err) {
+        try {
+          console.error(err);
+           next(err);
+        } catch (derr){
+          console.error('Error sending 500', derr, req.url);
+          reqd.dispose();
+        }
+      });
+      reqd.run(function(){
+        callback();
+      });
+    };
+    
+    function errorHandlerFn(err, req, res, next) {
+      if (config.errorHandler) {
+        connect.errorHandler.title = typeof config.errorHandler == 'string' ?  config.errorHandler : config.provider.databaseName;
+        connect.errorHandler()(err, req, res, next);
+      } else next(err);
     };
     
     return function(req, res, next){
-        var self = this;
+      var self = this;
 
 //
 // hide recursive calls that are denoted with an endpoint  "/$batch"
 //
-        var startStamp = new Date();
-        var endPointURL = unescape(req.url);
-        if (endPointURL != "/$batch") {
-          if (config.logEntry) {
+      var startStamp = new Date();
+      var endPointURL = unescape(req.url);
+      if (endPointURL != "/$batch") {
+        if (config.logEntry) {
 console.log(startStamp + " " + "Request " + req.method + " " + endPointURL + " received from " + req.connection.remoteAddress); 
-          }     
-        }
-        if (config.provider.checkPermission){
-            Object.defineProperty(req, 'checkPermission', {
-                value: config.provider.checkPermission.bind(req),
-                enumerable: true
-            });
-            config.provider.checkPermission = req.checkPermission;
-        }
+        }     
+      }
+      if (config.provider.checkPermission){
+        Object.defineProperty(req, 'checkPermission', {
+          value: config.provider.checkPermission.bind(req),
+          enumerable: true
+        });
+        config.provider.checkPermission = req.checkPermission;
+      }
 
 /*
         if (req.method === 'OPTIONS') {
@@ -209,118 +208,118 @@ console.log('!OPTIONS');
         res.setHeader("Cache-Control", "max-age=1");
 */
 
-        switch(config.authType) {
-          case "Basic":
-            basicAuthFn(req, res, function(){
-              config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || 'anonymous';
-              queryFn(req, res, function(){
-                bodyFn(req, res, function(){
-                  simpleBodyFn(req, res, function(){
-                    errorFn(req, res, next, function(){
-
-                      req.reso = {
-                        "externalIndex" : config.externalIndex,
-                        "startTime": startStamp.getTime(),
-                        "userName" : config.provider.user 
-                      }
-                      $data.JayService.createAdapter(
-                        serviceType, 
-                        function() {
-                          return new serviceType(config.provider);
-                        }
-                      ).call(
-                          self, 
-                          req, 
-                          res, 
-                          function(err) {
-                            if (typeof err === 'string') err = new Error(err);
-                            errorHandlerFn(err, req, res, next);
-                          }
-                      );
-                      postProcessFn(req, res);
-
-                    });
-                  });
-                });
-              });
-            });
-            break
-          case "Digest":
-            digestAuthFn(req, res, function(){
-              config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || 'anonymous';
-              queryFn(req, res, function(){
-                bodyFn(req, res, function(){
-                  simpleBodyFn(req, res, function(){
-                    errorFn(req, res, next, function(){
-
-                      req.reso = {
-                        "externalIndex" : config.externalIndex, 
-                        "startTime": startStamp.getTime(),
-                        "userName" : config.provider.user 
-                      }
-                      $data.JayService.createAdapter(
-                        serviceType, 
-                        function() {
-                          return new serviceType(config.provider);
-                        }
-                      ).call(
-                          self, 
-                          req, 
-                          res, 
-                          function(err) {
-                            if (typeof err === 'string') err = new Error(err);
-                            errorHandlerFn(err, req, res, next);
-                          }
-                      );
-                      postProcessFn(req, res);
-
-                    });
-                  });
-                });
-              });
-            });
-            break
-          default:
+      switch(config.authType) {
+        case "Basic":
+          basicAuthFn(req, res, function(){
             config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || 'anonymous';
             queryFn(req, res, function(){
               bodyFn(req, res, function(){
                 simpleBodyFn(req, res, function(){
                   errorFn(req, res, next, function(){
 
-                      req.reso = {
-                        "externalIndex" : config.externalIndex, 
-                        "startTime": startStamp.getTime(),
+                    req.reso = {
+                      "externalIndex" : config.externalIndex,
+                      "startTime": startStamp.getTime(),
                         "userName" : config.provider.user 
+                    }
+                    $data.JayService.createAdapter(
+                      serviceType, 
+                      function() {
+                        return new serviceType(config.provider);
                       }
-                      $data.JayService.createAdapter(
-                        serviceType, 
-                        function() {
-                          return new serviceType(config.provider);
+                    ).call(
+                        self, 
+                        req, 
+                        res, 
+                        function(err) {
+                          if (typeof err === 'string') err = new Error(err);
+                          errorHandlerFn(err, req, res, next);
                         }
-                      ).call(
-                          self, 
-                          req, 
-                          res, 
-                          function(err) {
-                            if (typeof err === 'string') err = new Error(err);
-                            errorHandlerFn(err, req, res, next);
-                          }
-                          
-                      );
-                      postProcessFn(req, res);
+                    );
+                    postProcessFn(req, res);
 
                   });
                 });
               });
             });
-        }
-    };
+          });
+          break
+        case "Digest":
+          digestAuthFn(req, res, function(){
+            config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || 'anonymous';
+            queryFn(req, res, function(){
+              bodyFn(req, res, function(){
+                simpleBodyFn(req, res, function(){
+                  errorFn(req, res, next, function(){
+
+                    req.reso = {
+                      "externalIndex" : config.externalIndex, 
+                      "startTime": startStamp.getTime(),
+                      "userName" : config.provider.user 
+                    }
+                    $data.JayService.createAdapter(
+                      serviceType, 
+                      function() {
+                        return new serviceType(config.provider);
+                      }
+                    ).call(
+                        self, 
+                        req, 
+                        res, 
+                        function(err) {
+                          if (typeof err === 'string') err = new Error(err);
+                          errorHandlerFn(err, req, res, next);
+                        }
+                    );
+                    postProcessFn(req, res);
+
+                  });
+                });
+              });
+            });
+          });
+          break
+        default:
+          config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || 'anonymous';
+          queryFn(req, res, function(){
+            bodyFn(req, res, function(){
+              simpleBodyFn(req, res, function(){
+                errorFn(req, res, next, function(){
+
+                    req.reso = {
+                      "externalIndex" : config.externalIndex, 
+                      "startTime": startStamp.getTime(),
+                      "userName" : config.provider.user 
+                    }
+                    $data.JayService.createAdapter(
+                      serviceType, 
+                      function() {
+                        return new serviceType(config.provider);
+                      }
+                    ).call(
+                        self, 
+                        req, 
+                        res, 
+                        function(err) {
+                          if (typeof err === 'string') err = new Error(err);
+                          errorHandlerFn(err, req, res, next);
+                        }
+                          
+                    );
+                    postProcessFn(req, res);
+
+                });
+              });
+            });
+          });
+      }
+  };
 };
 
 $data.createODataServer = function(type, path, port, host, protocol, certificates) {
 
   var bannerWidth = 78;
-  var bannerTop = function() {
+  function bannerTop() {
     var bannerText = ".";
     for (var i = bannerWidth; i--;) {
       bannerText += "-";
@@ -328,7 +327,7 @@ $data.createODataServer = function(type, path, port, host, protocol, certificate
     bannerText += ".";
 console.log(bannerText);
   }
-  var bannerSpacer = function() {
+  function bannerSpacer() {
     var bannerText = "|";
     for (var i = bannerWidth; i--;) {
       bannerText += "-";
@@ -336,7 +335,7 @@ console.log(bannerText);
     bannerText += "|";
 console.log(bannerText);
   }
-  var bannerLine = function(text) {
+  function bannerLine(text) {
     if (!text) {
       text = "";
     }
@@ -347,7 +346,7 @@ console.log(bannerText);
     bannerText += "|";
 console.log(bannerText);
   }
-  var bannerBottom = function() {
+  function bannerBottom() {
     var bannerText = "'";
     for (var i = bannerWidth; i--;) {
       bannerText += "-";
@@ -374,7 +373,7 @@ console.log(bannerText);
 //
 // create listener 
 //
-  var startListener = function() {
+  function startListener() {
     var connect = require('connect');
     var app;
     if (protocol == "http" ) {
@@ -576,9 +575,12 @@ function digestAuth(callback, req, res, realm, next) {
 //console.log(check_response);
 //  check_response = md5(check_response);
 
-  var HA1 = md5(username + ":" + realm + ":" + password);
-  var HA2 = md5(req.method + ":" + uri);
-  var check_response = md5(HA1 + ":" + nonce + ":" + nc + ":" + cnonce + ":" + qop + ":" + HA2);
+  var HA1 = crypto.createHash("md5").update(username + ":" + realm + ":" + password, "utf8").digest("hex");
+  var HA2 = crypto.createHash("md5").update(req.method + ":" + uri, "utf8").digest("hex");
+  var check_response = crypto.createHash("md5").update(HA1 + ":" + nonce + ":" + nc + ":" + cnonce + ":" + qop + ":" + HA2, "utf8").digest("hex");
+//  var HA1 = md5(username + ":" + realm + ":" + password);
+//  var HA2 = md5(req.method + ":" + uri);
+//  var check_response = md5(HA1 + ":" + nonce + ":" + nc + ":" + cnonce + ":" + qop + ":" + HA2);
 
 //
 // check constructed response against the passed response
@@ -607,12 +609,12 @@ function unauthorizedDigest(res, realm) {
   res.end("Unauthorized");
 };
 
-function md5(str, encoding){
-  return crypto
-    .createHash('md5')
-    .update(str, 'utf8')
-    .digest(encoding || 'hex');
-};
+//function md5(str, encoding){
+//  return crypto
+//    .createHash('md5')
+//    .update(str, 'utf8')
+//    .digest(encoding || 'hex');
+//};
 
 function readIndexFile(fileName) {
   if (fs.existsSync(fileName)) {
