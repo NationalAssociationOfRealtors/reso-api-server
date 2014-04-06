@@ -22,7 +22,7 @@ $data.ODataServer = function(type, db){
     config.provider.user = config.provider.user || config.user;
     config.provider.checkPermission = config.provider.checkPermission || config.checkPermission;
     config.provider.externalIndex = config.externalIndex;
-   
+  
     var serviceType = $data.Class.defineEx(type.fullName + '.Service', [type, $data.ServiceBase]);
     serviceType.annotateFromVSDoc();
 
@@ -431,9 +431,32 @@ console.log(bannerText);
   var db = new Db("reso", new Server("127.0.0.1", 27017), { safe : false } );
   db.open(function(err, db) {
     if (err) throw err;
-    var indexList = {
-      "Property": "ListingId" 
+
+//
+// construct an array of collections:property for any collection not using the id for a key
+//
+    var definitions = systemMetadata.memberDefinitions;
+    var indexList = {};
+    for (dName in definitions) {
+      var pos = dName.indexOf("$");
+      if (pos === 0) {
+        if (definitions[dName].kind == "property") {
+          if (definitions[dName].type.fullName == "$data.EntitySet") {
+            var entitySet = definitions[dName];
+            var keyProperties = entitySet.elementType.memberDefinitions.getKeyProperties();
+            if (keyProperties.length > 0) {
+              if (keyProperties[0].originalType != "id") {
+                indexList[dName.substring(1)] = keyProperties[0].name;
+              }
+            }
+          }
+        }
+      }
     }
+
+//
+// process collections that don't use default id as key
+//
     for (cName in indexList) {
       var cObject = {};
       var cKey = indexList[cName];
@@ -444,6 +467,10 @@ console.log(bannerText);
         db.close();
         startListener();
       }
+
+//
+// external index feature needs conflicting index removed and a scan of keys
+//
       if (config.externalIndex) {
         collection.indexInformation({full:true}, function(err, indexInformation) {
           var dropList = [];
@@ -464,6 +491,7 @@ console.log(bannerText);
           }
           function scanAndCreate(aDefinition) {
             collection.find({},aDefinition).toArray(function(err, docs) {
+//console.dir(docs);
               if (err) throw err;
               INDEX = [];
               for (var j = docs.length; j--;) {
@@ -489,6 +517,9 @@ console.log(bannerText);
           } // dropList.length == 0
         }); // collection.indexInformation
       } else {
+//
+// builtin-in index must be present
+//
         bannerLine("  > Uniqueness enforced with built-in index");
         collection.ensureIndex(cObject, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
           if (err) throw err;
