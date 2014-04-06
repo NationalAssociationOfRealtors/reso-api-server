@@ -432,39 +432,65 @@ console.log(bannerText);
   db.open(function(err, db) {
     if (err) throw err;
     var indexList = {
-      "Property": {ListingId:1}
+      "Property": "ListingId" 
     }
     for (cName in indexList) {
-      var cObject = indexList[cName];
+      var cObject = {};
+      var cKey = indexList[cName];
+      cObject[cKey] = 1;
       bannerLine("- Indexing " + cName);
       var collection = db.collection(cName);
+      function startup() {
+        db.close();
+        startListener();
+      }
       if (config.externalIndex) {
-        bannerLine("  > Uniqueness enforced with an in-memory index");
-        collection.dropIndex(cObject, function(err, result) {
-//        db.dropIndex(cName, cObject, function(err, result) {
-          if (!err) {
-            bannerLine("  > Conflicting built-in index was dropped");
-          }
-
-//
-// scan collection
-//
-          collection.find({},{ListingId: true}).toArray(function(err, docs) {
-            if (err) throw err;
-            INDEX = [];
-            for (var i = docs.length; i--;) {
-              INDEX[i] = docs[i].ListingId;
+        collection.indexInformation({full:true}, function(err, indexInformation) {
+          var dropList = [];
+          for (var i = indexInformation.length; i--;) {
+            var anIndex = indexInformation[i];
+            if (anIndex.unique) {
+//console.dir(anIndex);
+              var found = false;
+              for (cIndexKey in anIndex.key) {
+                if (cIndexKey == cKey) {
+                  found = true;
+                }
+              }
+              if (found) {
+                dropList[dropList.length] = anIndex.key;
+              }
             }
-            bannerLine("  > An in-memory index for " + cName + " has been created with " + docs.length + " items");
-            db.close();
-            startListener();
-          });
-        }); // collection.dropIndex
-
+          }
+          function scanAndCreate(aDefinition) {
+            collection.find({},aDefinition).toArray(function(err, docs) {
+              if (err) throw err;
+              INDEX = [];
+              for (var j = docs.length; j--;) {
+                INDEX[j] = docs[j].ListingId;
+              }
+              bannerLine("  > An in-memory index for " + cName + " has been created with " + docs.length + " items");
+              if (i < 0) {
+                startup();
+              }
+            });
+          };
+          if (dropList.length == 0) {
+            scanAndCreate(cObject);
+          } else {
+            for (var i = dropList.length; i--;) {
+              db.dropIndex(cName, dropList[i], function(err, result) {
+                if (!err) {
+                  bannerLine("  > Conflicting built-in index was dropped");
+                }
+              });
+              scanAndCreate(dropList[i]);
+            } // dropList loop
+          } // dropList.length == 0
+        }); // collection.indexInformation
       } else {
         bannerLine("  > Uniqueness enforced with built-in index");
         collection.ensureIndex(cObject, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
-//        db.ensureIndex(cName", cObject, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
           if (err) throw err;
           if (!indexName) {
             bannerLine("  > Built-in index for " + cName + " was not found and was automatically created");
@@ -473,16 +499,14 @@ console.log(bannerText);
           collection.indexInformation({full:true}, function(err, indexInformation) {
 //          db.indexInformation(cName, {full:true}, function(err, indexInformation) {
             for (var i = indexInformation.length; i--;) {
-              var anIndex = indexInformation[i];
-              if (anIndex.name != "_id_") {
-                bannerLine("  > Built-in index name for " + cName + " is " + anIndex.name);
+              if (indexInformation[i].name != "_id_") {
+                bannerLine("  > Built-in index name for " + cName + " is " + indexInformation[i].name);
               }
             }
-            db.close();
-            startListener();
+            startup();
           });
         }); // collection.ensureIndex
-      }
+      } // if config.externalIndex
     } // indexDriver
   }); // db.open
 
