@@ -444,7 +444,7 @@ console.log(bannerText);
 //
 // construct an array of collections:property for any collection not using the id for a key
 //
-    var indexList = {};
+    var indexList = [];
     for (dName in definitions) {
       var pos = dName.indexOf("$");
       if (pos === 0) {
@@ -462,19 +462,24 @@ console.log(bannerText);
       }
     }
 
+    function startup() {
+      db.close();
+      startListener();
+    }
+
 //
 // process collections that don't use default id as key
 //
+    if (indexList.length == 0 ) {
+      startup();
+    }
+
     for (cName in indexList) {
       var cObject = {};
       var cKey = indexList[cName];
       cObject[cKey] = 1;
       bannerLine("- Indexing " + cName);
       var collection = db.collection(cName);
-      function startup() {
-        db.close();
-        startListener();
-      }
 
 //
 // external index feature needs conflicting index removed and a scan of keys
