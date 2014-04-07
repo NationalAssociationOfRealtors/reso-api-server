@@ -441,10 +441,11 @@ console.log(bannerText);
     } catch (e){
       definitions = reso.memberDefinitions;
     }
+
 //
-// construct an array of collections:property for any collection not using the id for a key
+// construct an array of collections:property for collections not using guid as a key
 //
-    var indexList = [];
+    var indexList = {};
     for (dName in definitions) {
       var pos = dName.indexOf("$");
       if (pos === 0) {
@@ -468,12 +469,24 @@ console.log(bannerText);
     }
 
 //
-// process collections that don't use default id as key
+// no need to apply special indexing if all collections use guid 
 //
-    if (indexList.length == 0 ) {
+    function isEmptyObject(obj) {
+      for(var prop in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, prop)) {
+          return false;
+        }
+      }
+      return true;
+    }
+    if (isEmptyObject(indexList)) {
+      bannerLine("- No special indexing is required");
       startup();
     }
 
+//
+// process collections that don't use default guid as key
+//
     for (cName in indexList) {
       var cObject = {};
       var cKey = indexList[cName];
