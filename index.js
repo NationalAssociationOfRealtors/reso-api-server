@@ -433,9 +433,17 @@ console.log(bannerText);
     if (err) throw err;
 
 //
+// determine if the deprecated approach to JayData definition is used (variable "reso") 
+//
+    var definitions;
+    try {
+      definitions = systemMetadata.memberDefinitions;
+    } catch (e){
+      definitions = reso.memberDefinitions;
+    }
+//
 // construct an array of collections:property for any collection not using the id for a key
 //
-    var definitions = systemMetadata.memberDefinitions;
     var indexList = {};
     for (dName in definitions) {
       var pos = dName.indexOf("$");
