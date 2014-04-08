@@ -4,8 +4,7 @@
 //
 // includes
 //
-var fs = require("fs")
-  , INDEX;
+var fs = require("fs");
 
 require("reso-api-server");
 
@@ -54,17 +53,19 @@ console.log("Using configuration file " + aConfigFile);
       startServer(userConfig);
     }
   });
-}());
+})();
 
 function startServer(userConfig) {
  
 //
 // pre-process with configuration information
 //
+  var systemMetadata;
   if (!userConfig.METADATA_DEFINITION) {
     require("reso-data-dictionary"); 
   } else {
     require(userConfig["METADATA_DEFINITION"]);
+    systemMetadata = userConfig["METADATA_DEFINITION"];
   }
   var certificates = {
     key:    fs.readFileSync(userConfig["SERVER_KEY"]),
@@ -72,61 +73,38 @@ function startServer(userConfig) {
     ca:     fs.readFileSync(userConfig["CA_CERTIFICATE"])
   };
 
-//reso.Property.ensureIndex( { "ListingId" : 1 }, { unique : true });
-
 //
 // create server 
 //
-/*
-$data.createODataServer(
-  reso, 
-  userConfig["SERVER_PATH"], 
-  userConfig["SERVER_PORT"], 
-  userConfig["SERVER_DOMAIN"], 
-  userConfig["SERVER_PROTOCOL"], 
-  userConfig["INDEX_LOCATION"], 
-  certificates
-);
-*/
-
-/*
-$data.createODataServer(
-  {
-    authType: userConfig["AUTH_TYPE"],
-    authRealm: userConfig["AUTH_REALM"],
-    basicAuth: {username: "admin", password: "admin"},
-    certificates: certificates, 
-    indexLocation: userConfig["INDEX_LOCATION"], 
-    host: userConfig["SERVER_DOMAIN"], 
-    path: "/"+userConfig["SERVER_PATH"] 
-    port: userConfig["SERVER_PORT"], 
-    protocol: userConfig["SERVER_PROTOCOL"], 
-    type: reso, 
-  }
-);
-*/
 
   $data.createODataServer(
     {
       authType: userConfig["AUTH_TYPE"],
       authRealm: userConfig["AUTH_REALM"],
       basicAuth: function(username, password){
-        if (username == "admin"){
-          return password == "admin";
-        } else return true;
-      },
-      certificates: certificates, 
-      compression: userConfig["COMPRESSION"],
-      digestAuth: function(username){
-        if (username == "admin"){
-          return "admin";
+        if (password == lookupUserPassword(username)) {
+          return true;
         }
         return false;
       },
+      certificates: certificates, 
+//      CORS: true,
+      checkPermission: function(access, user, entitySets, callback){
+/*
+console.dir(entitySets[0].name);
+*/
+        if (access & $data.Access.Read){
+            callback.success();
+        } else if (user == 'admin') callback.success();
+        else callback.error('auth fail');
+      }, 
+      compression: userConfig["COMPRESSION"],
+      digestAuth: lookupUserPassword,
       externalIndex: userConfig["EXTERNAL_INDEX"], 
       host: userConfig["SERVER_DOMAIN"], 
       indexLocation: userConfig["INDEX_LOCATION"], 
-      logEntry: userConfig["LOG_ENTRY"], 
+      logEntry: userConfig["LOG_ENTRY"],
+      metadata: systemMetadata, 
       path: "/"+userConfig["SERVER_PATH"], 
       port: userConfig["SERVER_PORT"],
       postProcess: function(method, reso){
@@ -141,6 +119,9 @@ console.log ("Delete " + reso.resultSize + " object from " + reso.memberName + "
             }
 console.log ("Query " + reso.resultSize + " " + returnText + " from " + reso.memberName + " by " + reso.userName + " sent through " + reso.requestor + " consuming " + (reso.endTime - reso.startTime) + " ms");
             break;
+          case "PATCH":
+console.log ("Update " + reso.resultSize + " object to " + reso.memberName + " (" + reso.keyValue + ") by " + reso.userName + " sent through " + reso.requestor + " consuming " + (reso.endTime - reso.startTime) + " ms");
+            break;
           case "POST":
 console.log ("Add " + reso.resultSize + " object to " + reso.memberName + " (" + reso.keyValue + ") by " + reso.userName + " sent through " + reso.requestor + " consuming " + (reso.endTime - reso.startTime) + " ms");
             break;
@@ -148,37 +129,18 @@ console.log ("Add " + reso.resultSize + " object to " + reso.memberName + " (" +
       },
       processWait: userConfig["PROCESS_WAIT"],
       protocol: userConfig["SERVER_PROTOCOL"], 
+      responseLimit: userConfig["RESPONSE_LIMIT"], 
       serverName: userConfig["SERVER_NAME"], 
       type: reso 
     }
   );
 
-/*
-$data.createODataServer(
-  {
-    authType: userConfig["AUTH_TYPE"],
-    authRealm: userConfig["AUTH_REALM"],
-    CORS: true, 
-    basicAuth: function(username, password){
-      if (username == "admin"){
-        return password == "admin";
-      } else return true;
-    },
-    certificates: certificates, 
-    checkPermission: function(access, user, entitySets, callback){
-      if (access & $data.Access.Read){
-        callback.success();
-      }else if (user == "admin") callback.success();
-      else callback.error("auth fail");
-    },
-    indexLocation: userConfig["INDEX_LOCATION"], 
-    path: "/"+userConfig["SERVER_PATH"], 
-    port: userConfig["SERVER_PORT"], 
-    protocol: userConfig["SERVER_PROTOCOL"], 
-    type: reso 
-  }
-);
-*/
+}
 
+var lookupUserPassword = function(username) {
+  if (username == "admin"){
+    return "admin";
+  }
+  return false;
 }
 
