@@ -6,7 +6,9 @@ The RESO API Server provides a basic server that supports the OData protocol as 
 
 ### Operation
 
-The RESO API Server can be run from the command line using a file created to customize operation.  The **Setup** section provides a step-by-step guide getting the server installed.  Please use information outlined in the **Configuration** section to create the configuration file.
+The RESO API Server can be run from the command line using a file created to customize operation.  The server supports both a DataService endpoint (used for discovery) as well as a Resource endpoint.  
+
+The **Setup** section provides a step-by-step guide getting the server installed.  Please use information outlined in the **Configuration** section to create the configuration file.
 
 ### Setup
 
@@ -36,7 +38,7 @@ The following procedure should be followed to setup the server:
 + Create a configuration file or use the sample file supplied by the distribution:
 
  ```shell
-  cp ../node_modules/reso-api-server/samples/proxy.js . 
+  cp ../node_modules/reso-api-server/samples/service.js . 
  ```
 
 + Configure the server using the guide below in the **Configuration** section.
@@ -75,11 +77,13 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
 
 + Data Processing 
 
- EXTERNAL\_INDEX: A boolean value that indicates whether an external index (recommended) is being used to enfoce uniqueness or the underlying MongoDB database indexing will be used.
+ EXTERNAL\_INDEX: A boolean value that indicates whether an external index (recommended) is being used to enfoce uniqueness or the underlying MongoDB database indexing will be used.  Only MongoDB collections that do not use GUID as a key are affected.
 
  LOG\_ENTRY: A boolean value that indicates whether a console log message is generated each time a request is processed.  This produces more output at the console, but allerts you when there is activity. Defaults ot "false".
 
  METADATA\_DEFINITION: The path to the file for the JSON formatted OData definition file that contains RESO Data Dictionary definitions.  If this parameter is not included, the server will try to look for the package "reso-data-dictionary" which should be included from your root project directory.
+
+ PROCESS\_WAIT: The number of milliseconds to wait for processing to complete for complex queries.  A goog value to start with is 20, but this parameter defaults to 0.
 
  RESPONSE\_LIMIT: The maximum number of objects that can be retrieved at one time.  Defaults to 100.
 
@@ -100,9 +104,9 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
   
 ### Avoiding Duplicate Records 
 
-The underlying MongoDB database does a good job of avoiding duplicates if you are depending on the GUID attached to reach record.  Real Estate listings are coded, but not with a GUID approach.  A listing database relies on a different "key".  In the case of this server, listing records have a key of "ListingId".  Since the key being used is not GUID, there  re special mechanisms used to control duplicates.
+The underlying MongoDB database does a good job of avoiding duplicates if you are depending on the GUID attached to reach record.  Real Estate listings are coded, but not with a GUID approach.  A listing database relies on a different "key".  In the case of this server, listing records have a key of "ListingId".  Since the key being used is not GUID, there are special mechanisms used to control duplicates.
 
-The first approach to avoid duplicates is to create an index that enforces uniquenes.  In order to use this approach, set the configuration EXTERNAL\_INDEX to "false".  This approach takes advantage of the built-in capabilites of MongoDB.
+The first approach to avoid duplicates is to create an index that enforces uniqueness.  In order to use this approach, set the configuration EXTERNAL\_INDEX to "false".  This approach takes advantage of the built-in capabilites of MongoDB.
 
 An alternative to preventing duplicates with a MongoDB index is to create an index in-memory.  Upon startup, the database is scaned an an in-memory index is created.   In order to use this approach, set the configuration EXTERNAL\_INDEX to "true". Although this approach performes better than the MongoDB index approach, manipulation of the database (from the command line for instance) will corrupt the in-memory index.
 
