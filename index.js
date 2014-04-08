@@ -7,46 +7,86 @@ var fs = require('fs')
 
 window.DOMParser = require('xmldom').DOMParser;
 
+//
+// functions shared between endpoints
+//
+function basicAuthFn(config, connect, req, res, next){
+  if (!config.basicAuth) {
+    return next();
+  }
+  if (typeof config.basicAuth == 'function'){
+    connect.basicAuth(config.basicAuth)(req, res, next);
+  } else {
+    next();
+  }
+};
+    
+function digestAuthFn(config, req, res, next){
+  if (!config.digestAuth) {
+    return next();
+  }
+  if (typeof config.digestAuth == 'function'){
+    digestAuth(config.digestAuth, req, res, config.authRealm, next);
+  } else {
+    next();
+  }
+};
+
+function queryFn(connect, req, res, next){
+  if (!req.query) {
+    connect.query()(req, res, next);
+  } else next();
+};
+
+function errorFn(req, res, next, callback) {
+  var domain = require("domain");
+  var reqd = domain.create();
+  reqd.add(req);
+  reqd.add(res);
+  reqd.add(next);
+  reqd.on('error', function(err) {
+    try {
+      console.error(err);
+       next(err);
+    } catch (derr){
+      console.error("Error sending 500", derr, req.url);
+      reqd.dispose();
+    }
+  });
+  reqd.run(function(){
+    callback();
+  });
+};
+    
+function errorHandlerFn(config, connect, err, req, res, next) {
+  if (config.errorHandler) {
+    connect.errorHandler.title = typeof config.errorHandler == "string" ?  config.errorHandler : config.provider.databaseName;
+    connect.errorHandler()(err, req, res, next);
+  } else {
+    next(err);
+  }
+};
+
+//
+// resource endpoint
+//    
 $data.ODataServer = function(type, db){
 
-    var connect = require('connect');
-    var domain = require('domain');
+    var connect = require("connect");
    
-    var config = typeof type === 'object' ? type : {};
+    var config = typeof type === "object" ? type : {};
     var type = config.type || type;
     config.database = config.database || db || type.name;
     if (!config.provider) config.provider = {};
-    config.provider.name = config.provider.name || 'mongoDB';
+    config.provider.name = config.provider.name || "mongoDB";
     config.provider.databaseName = config.provider.databaseName || config.database || db || type.name;
     config.provider.responseLimit = config.provider.responseLimit || config.responseLimit || 100;
     config.provider.user = config.provider.user || config.user;
     config.provider.checkPermission = config.provider.checkPermission || config.checkPermission;
     config.provider.externalIndex = config.externalIndex;
   
-    var serviceType = $data.Class.defineEx(type.fullName + '.Service', [type, $data.ServiceBase]);
+    var serviceType = $data.Class.defineEx(type.fullName + ".Service", [type, $data.ServiceBase]);
     serviceType.annotateFromVSDoc();
-
-    function basicAuthFn(req, res, next){
-      if (!config.basicAuth) {
-        return next();
-      }
-      if (typeof config.basicAuth == 'function'){
-        connect.basicAuth(config.basicAuth)(req, res, next);
-      } else {
-        next();
-      }
-    };
-    
-    function digestAuthFn(req, res, next){
-      if (!config.digestAuth) {
-        return next();
-      }
-      if (typeof config.digestAuth == 'function'){
-        digestAuth(config.digestAuth, req, res, config.authRealm, next);
-      } else {
-        next();
-      }
-    };
 
     function postProcessFn(req, res){
       if (config.postProcess) {
@@ -115,12 +155,6 @@ console.log("Consider increasing PROCESS_WAIT configuration value");
     };
 */
     
-    function queryFn(req, res, next){
-      if (!req.query) {
-        connect.query()(req, res, next);
-      } else next();
-    };
-
     function bodyFn(req, res, next){
       if (!req.body){
         connect.json()(req, res, function(err){
@@ -133,33 +167,7 @@ console.log("Consider increasing PROCESS_WAIT configuration value");
     function simpleBodyFn(req, res, next) {
       $data.JayService.OData.Utils.simpleBodyReader()(req, res, next);
     };
-    
-    function errorFn(req, res, next, callback) {
-      var reqd = domain.create();
-      reqd.add(req);
-      reqd.add(res);
-      reqd.add(next);
-      reqd.on('error', function(err) {
-        try {
-          console.error(err);
-           next(err);
-        } catch (derr){
-          console.error('Error sending 500', derr, req.url);
-          reqd.dispose();
-        }
-      });
-      reqd.run(function(){
-        callback();
-      });
-    };
-    
-    function errorHandlerFn(err, req, res, next) {
-      if (config.errorHandler) {
-        connect.errorHandler.title = typeof config.errorHandler == 'string' ?  config.errorHandler : config.provider.databaseName;
-        connect.errorHandler()(err, req, res, next);
-      } else next(err);
-    };
-    
+
     return function(req, res, next){
       var self = this;
 
@@ -210,9 +218,9 @@ console.log('!OPTIONS');
 
       switch(config.authType) {
         case "Basic":
-          basicAuthFn(req, res, function(){
-            config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || 'anonymous';
-            queryFn(req, res, function(){
+          basicAuthFn(config, connect, req, res, function(){
+            config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
+            queryFn(connect, req, res, function(){
               bodyFn(req, res, function(){
                 simpleBodyFn(req, res, function(){
                   errorFn(req, res, next, function(){
@@ -232,22 +240,22 @@ console.log('!OPTIONS');
                         req, 
                         res, 
                         function(err) {
-                          if (typeof err === 'string') err = new Error(err);
+                          if (typeof err === "string") err = new Error(err);
                           errorHandlerFn(err, req, res, next);
                         }
                     );
                     postProcessFn(req, res);
 
-                  });
-                });
-              });
-            });
-          });
+                  }); // errorFn
+                }); // simpeBodyFn
+              }); // bodyFn
+            }); // queryFn
+          }); // basicAuthFn
           break
         case "Digest":
-          digestAuthFn(req, res, function(){
-            config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || 'anonymous';
-            queryFn(req, res, function(){
+          digestAuthFn(config, req, res, function(){
+            config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
+            queryFn(connect, req, res, function(){
               bodyFn(req, res, function(){
                 simpleBodyFn(req, res, function(){
                   errorFn(req, res, next, function(){
@@ -267,21 +275,21 @@ console.log('!OPTIONS');
                         req, 
                         res, 
                         function(err) {
-                          if (typeof err === 'string') err = new Error(err);
+                          if (typeof err === "string") err = new Error(err);
                           errorHandlerFn(err, req, res, next);
                         }
                     );
                     postProcessFn(req, res);
 
-                  });
-                });
-              });
-            });
-          });
+                  }); // errorFn
+                }); // simpleBodyFn
+              }); // bodyFn
+            }); // queryFn
+          }); // digestAuthFn
           break
         default:
-          config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || 'anonymous';
-          queryFn(req, res, function(){
+          config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
+          queryFn(connect, req, res, function(){
             bodyFn(req, res, function(){
               simpleBodyFn(req, res, function(){
                 errorFn(req, res, next, function(){
@@ -301,34 +309,170 @@ console.log('!OPTIONS');
                         req, 
                         res, 
                         function(err) {
-                          if (typeof err === 'string') err = new Error(err);
+                          if (typeof err === "string") err = new Error(err);
                           errorHandlerFn(err, req, res, next);
                         }
                           
                     );
                     postProcessFn(req, res);
 
-                });
-              });
-            });
-          });
-      }
+                }); // errorFn
+              }); // simpleBodyFn
+            }); // bodyFn
+          }); // queryFn
+      } // switch authType
     }; // return
 };
 
-$data.DataServiceServer = function(type){
+//
+// DataService (discovery) endpoint
+//    
+$data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, resourceList){
 
-  var connect = require('connect');
-  var domain = require('domain');
+  var connect = require("connect");
    
-  var config = typeof type === 'object' ? type : {};
+  var config = typeof type === "object" ? type : {};
   var type = config.type || type;
+
+  function dataServiceMetadata(req, res, next) {
+
+    var author = "Center for REALTOR Technology";
+    var transportVersion = "0.9";
+    var lastUpdate = new Date("01/23/2014");
+
+    function generateResourceHeader() { 
+      return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n" +
+             "<feed xml:base=\"" + dataServiceEndpoint + "/\" " +
+             "xmlns=\"http://www.w3.org/2005/Atom\" " +
+             "xmlns:d=\"http://schemas.microsoft.com/ado/2007/08/dataservices\" " +
+             "xmlns:m=\"http://schemas.microsoft.com/ado/2007/08/dataservices/metadata\" " +
+             "xmlns:georss=\"http://www.georss.org/georss\" " +
+             "xmlns:gml=\"http://www.opengis.net/gml\">\r\n" +
+             " <id>" + dataServiceEndpoint + "</id>\r\n" +
+             " <title type=\"text\">DataSystem</title>\r\n" +
+             " <updated>" + lastUpdate.toISOString() + "</updated>\r\n" +
+             " <link rel=\"self\" title=\"DataSystem\" href=\"DataSystem\" />\r\n" +
+             " <entry>\r\n" +
+             "  <id>" + dataServiceEndpoint + "/DataSystem('" + config.serverName + "')</id>\r\n" +
+             "  <category term=\"RESO.OData.Transport.DataSystem\" scheme=\"http://schemas.microsoft.com/ado/2007/08/dataservices/scheme\" />\r\n" +
+             "  <link rel=\"edit\" title=\"DataSystem\" href=\"DataSystem('" + config.serverName + "')\" />\r\n" +
+             "  <title>Data Services for " + config.serverName + "</title>\r\n" +
+             "  <updated>" + lastUpdate.toISOString() + "</updated>\r\n" +
+             "  <author>\r\n" +
+             "   <name>" + author + "</name>\r\n" +
+             "  </author>\r\n" +
+             "  <content type=\"application/xml\">\r\n" +
+             "   <m:properties>\r\n" +
+             "    <d:Name>" + config.serverName + "</d:Name>\r\n" +
+             "    <d:ServiceURI>" + dataServiceEndpoint + "</d:ServiceURI>\r\n" +
+             "    <d:DateTimeStamp m:type=\"Edm.DateTime\">" + (new Date()).toISOString() + "</d:DateTimeStamp>\r\n" +
+             "    <d:TransportVersion>" + transportVersion + "</d:TransportVersion>\r\n" +
+             "    <d:Resources m:type=\"Collection(RESO.OData.Transport.Resource)\">\r\n";
+    };
+
+    function generateResourceElement(aName, aDate) { 
+      return "    <d:element>\r\n" +
+             "     <d:Name>" + aName + "</d:Name>\r\n" +
+             "     <d:ServiceURI>" + resourceEndpoint + "</d:ServiceURI>\r\n" +
+             "     <d:Description>RESO Standard " + aName + " Resource</d:Description>\r\n" +
+             "     <d:DateTimeStamp m:type=\"Edm.DateTime\">" + aDate.toISOString() + "</d:DateTimeStamp>\r\n" +
+             "     <d:TimeZoneOffset m:type=\"Edm.Int32\">" + (0 - (aDate.getTimezoneOffset()/60))  + "</d:TimeZoneOffset>\r\n" +
+             "     <d:Localizations m:type=\"Collection(RESO.OData.Transport.Localization)\" />\r\n" +
+             "    </d:element>\r\n";
+    }
+
+    function generateResourceFooter() { 
+      return "    </d:Resources>\r\n" +
+             "    <d:ID>" + config.serverName + "</d:ID>\r\n" +
+             "   </m:properties>\r\n" +
+             "  </content>\r\n" +
+             " </entry>\r\n" +
+             "</feed>";
+    };
+
+    var aDoc = generateResourceHeader();
+    for (eName in resourceList) {
+      aDoc += generateResourceElement(eName, resourceList[eName]);
+    }
+    aDoc += generateResourceFooter();
+
+    res.statusCode = 200;
+    res.setHeader("content-type", "application/xml;charset=UTF-8");
+    res.setHeader("content-length", aDoc.length);
+    res.end(aDoc);
+  };
 
   return function(req, res, next){
     var self = this;
+    switch(config.authType) {
+      case "Basic":
+        basicAuthFn(config, connect, req, res, function(){
+          config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
+          queryFn(connect, req, res, function(){
+            errorFn(req, res, next, function(){
+              var aQuery = decodeURIComponent(req._parsedUrl.query);
+              switch (aQuery) {
+                case "DataSystem":
+                  dataServiceMetadata(req, res, next);
+                  break;
+                case "DataSystem('" + config.serverName + "')":
+                  dataServiceMetadata(req, res, next);
+                  break;
+                default:
+                  res.statusCode = 500;
+                  errorHandlerFn(config, connect, "Unknown DataService Query " + aQuery, req, res, next);
+              }
+            }); // errorFn
+          }); // queryFn
+        });
+        break
+      case "Digest":
+        digestAuthFn(config,req, res, function(){
+          config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
+          queryFn(connect, req, res, function(){
+            errorFn(req, res, next, function(){
+              var aQuery = decodeURIComponent(req._parsedUrl.query);
+              switch (aQuery) {
+                case "DataSystem":
+                  dataServiceMetadata(req, res, next);
+                  break;
+                case "DataSystem('" + config.serverName + "')":
+                  dataServiceMetadata(req, res, next);
+                  break;
+                default:
+                  res.statusCode = 500;
+                  errorHandlerFn(config, connect, "Unknown DataService Query " + aQuery, req, res, next);
+              }
+            }); // errorFn
+          }); // queryFn
+        });
+        break
+      default:
+        config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
+        queryFn(connect, req, res, function(){
+          errorFn(req, res, next, function(){
+            var aQuery = decodeURIComponent(req._parsedUrl.query);
+            switch (aQuery) {
+              case "DataSystem":
+                dataServiceMetadata(req, res, next);
+                break;
+              case "DataSystem('" + config.serverName + "')":
+                dataServiceMetadata(req, res, next);
+                  break;
+              default:
+                res.statusCode = 500;
+                errorHandlerFn(config, connect, "Unknown DataService Query " + aQuery, req, res, next);
+            }
+          }); // errorFn
+        }); // queryFn
+    } // switch authType
+
   }; // return
 };
 
+//
+// http service
+//
 $data.createODataServer = function(type, path, port, host, protocol, certificates) {
 
   var bannerWidth = 78;
@@ -367,7 +511,10 @@ console.log(bannerText);
     bannerText += "'";
 console.log(bannerText);
   }
-  
+ 
+//
+// general configuration items
+// 
   var config = typeof type === 'object' ? type : {};
 
   var projectName = "RESO API Server";
@@ -383,53 +530,6 @@ console.log(bannerText);
   } 
   bannerSpacer();
 
-//
-// create listener 
-//
-  function startListener() {
-    var connect = require('connect');
-    var app;
-    if (protocol == "http" ) {
-      app = connect();
-    } else {
-      var serverCertificates = config.certificates || certificates;
-      app = connect(serverCertificates);
-    }
-    var serverPath = config.path || path || "/";
-
-    if (config.compression) {
-      app.use(connect.compress());
-    }
-
-//
-// handlers
-//
-    app.use(serverPath, $data.ODataServer(type));
-//    var dataSystemPath = "/DataSystem.svc";    
-//    app.use(dataSystemPath, $data.DataServiceServer(type));
-
-    var serverHost = config.host || host;
-    var serverPort = config.port || port || 80;
-    var serverProtocol = config.protocol || protocol || "http";
-    app.listen(serverPort, serverHost);
-
-//
-// console notification
-//
-    bannerLine();
-    bannerLine("Listening on " + serverProtocol + "://" + serverHost + ":" + serverPort + serverPath);
-    bannerBottom();
-
-//    bannerTop();
-//    bannerLine("Discovery System");
-//    bannerSpacer();
-//    bannerLine("Listening on " + serverProtocol + "://" + serverHost + ":" + serverPort + dataSystemPath);
-//    bannerBottom();
-  }
-
-//
-// authentication
-//
   switch(config.authType) {
     case "Basic":
       bannerLine("- Supports " + config.authType + " Authentication");
@@ -444,14 +544,12 @@ console.log(bannerText);
       bannerLine("- No Authentication is being used");
   }
 
-//
-// compression 
-//
   if (config.compression) {
     bannerLine("- Output will ALWAYS be compressed if the requestor can handle compression");
   } else {
     bannerLine("- Output will NEVER be compressed");
   }
+  bannerBottom();
 
 //
 // indexing 
@@ -462,15 +560,20 @@ console.log(bannerText);
     if (err) throw err;
 
 //
-// construct an array of collections:property for collections not using guid as a key
+// construct an arrays  of collection information:
+// - collections not using guid as a key
+// - creationDate by collection
 //
     var definitions = type.type.memberDefinitions;
     var indexList = {};
+    var resourceList = {};
+    var resourceDate = new Date();
     for (dName in definitions) {
       var pos = dName.indexOf("$");
       if (pos === 0) {
         if (definitions[dName].kind == "property") {
           if (definitions[dName].type.fullName == "$data.EntitySet") {
+            resourceList[dName.substring(1)] = resourceDate;
             var entitySet = definitions[dName];
             var keyProperties = entitySet.elementType.memberDefinitions.getKeyProperties();
             if (keyProperties.length > 0) {
@@ -485,9 +588,52 @@ console.log(bannerText);
 
     function startup() {
       db.close();
-      startListener();
+      var connect = require('connect');
+      var app;
+      if (protocol == "http" ) {
+        app = connect();
+      } else {
+        var serverCertificates = config.certificates || certificates;
+        app = connect(serverCertificates);
+      }
+      var serverPath = config.path || path || "/";
+
+      if (config.compression) {
+        app.use(connect.compress());
+      }
+
+//
+// handlers
+//
+      var serverHost = config.host || host;
+      var serverPort = config.port || port || 80;
+      var serverProtocol = config.protocol || protocol || "http";
+
+      app.use(serverPath, $data.ODataServer(type));
+      var dataSystemPath = "/DataSystem.svc";    
+      var resourceEndpoint = serverProtocol + "://" + serverHost + ":" + serverPort + serverPath;
+      var dataServiceEndpoint = serverProtocol + "://" + serverHost + ":" + serverPort + dataSystemPath;
+      app.use(dataSystemPath, $data.DataServiceServer(type, dataServiceEndpoint, resourceEndpoint, resourceList));
+
+      app.listen(serverPort, serverHost);
+
+//
+// console notification
+//
+      bannerLine();
+      bannerLine("Listening on " + serverProtocol + "://" + serverHost + ":" + serverPort + serverPath);
+      bannerBottom();
+
+      bannerTop();
+      bannerLine("DataService Endpoint");
+      bannerSpacer();
+      bannerLine("Listening on " + serverProtocol + "://" + serverHost + ":" + serverPort + dataSystemPath);
+      bannerBottom();
     }
 
+    bannerTop();
+    bannerLine("Resource Endpoint");
+    bannerSpacer();
 //
 // no need to apply special indexing if all collections use guid 
 //
@@ -706,7 +852,7 @@ console.log("FAILED");
 
 function unauthorizedDigest(res, realm) {
   res.statusCode = 401;
-  res.setHeader('WWW-Authenticate', 'Digest realm="' + realm + '", nonce="' + nonce + '", qop=auth');
+  res.setHeader("WWW-Authenticate", 'Digest realm="' + realm + '", nonce="' + nonce + '", qop=auth');
   res.end("Unauthorized");
 };
 
