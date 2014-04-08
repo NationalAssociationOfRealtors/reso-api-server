@@ -313,7 +313,20 @@ console.log('!OPTIONS');
             });
           });
       }
-  };
+    }; // return
+};
+
+$data.DataServiceServer = function(type){
+
+  var connect = require('connect');
+  var domain = require('domain');
+   
+  var config = typeof type === 'object' ? type : {};
+  var type = config.type || type;
+
+  return function(req, res, next){
+    var self = this;
+  }; // return
 };
 
 $data.createODataServer = function(type, path, port, host, protocol, certificates) {
@@ -388,14 +401,30 @@ console.log(bannerText);
       app.use(connect.compress());
     }
 
+//
+// handlers
+//
     app.use(serverPath, $data.ODataServer(type));
+//    var dataSystemPath = "/DataSystem.svc";    
+//    app.use(dataSystemPath, $data.DataServiceServer(type));
+
     var serverHost = config.host || host;
     var serverPort = config.port || port || 80;
     var serverProtocol = config.protocol || protocol || "http";
     app.listen(serverPort, serverHost);
+
+//
+// console notification
+//
     bannerLine();
     bannerLine("Listening on " + serverProtocol + "://" + serverHost + ":" + serverPort + serverPath);
     bannerBottom();
+
+//    bannerTop();
+//    bannerLine("Discovery System");
+//    bannerSpacer();
+//    bannerLine("Listening on " + serverProtocol + "://" + serverHost + ":" + serverPort + dataSystemPath);
+//    bannerBottom();
   }
 
 //
@@ -433,18 +462,9 @@ console.log(bannerText);
     if (err) throw err;
 
 //
-// determine if the deprecated approach to JayData definition is used (variable "reso") 
-//
-    var definitions;
-    try {
-      definitions = systemMetadata.memberDefinitions;
-    } catch (e){
-      definitions = reso.memberDefinitions;
-    }
-
-//
 // construct an array of collections:property for collections not using guid as a key
 //
+    var definitions = type.type.memberDefinitions;
     var indexList = {};
     for (dName in definitions) {
       var pos = dName.indexOf("$");
