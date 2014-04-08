@@ -3,7 +3,8 @@ require('jaydata-reso');
 var fs = require('fs')
   , crypto = require("crypto")
   , randomstring = require("just.randomstring")
-  , nonce = randomstring(16);
+  , nonce = randomstring(16)
+  , transportVersion = "0.9";
 
 window.DOMParser = require('xmldom').DOMParser;
 
@@ -327,7 +328,7 @@ console.log('!OPTIONS');
 //
 // DataService (discovery) endpoint
 //    
-$data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, resourceList){
+$data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, resourceList, metadata){
 
   var connect = require("connect");
    
@@ -335,10 +336,6 @@ $data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, 
   var type = config.type || type;
 
   function dataServiceMetadata(req, res, next) {
-
-    var author = "Center for REALTOR Technology";
-    var transportVersion = "0.9";
-    var lastUpdate = new Date("01/23/2014");
 
     function generateResourceHeader() { 
       return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n" +
@@ -350,16 +347,16 @@ $data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, 
              "xmlns:gml=\"http://www.opengis.net/gml\">\r\n" +
              " <id>" + dataServiceEndpoint + "</id>\r\n" +
              " <title type=\"text\">DataSystem</title>\r\n" +
-             " <updated>" + lastUpdate.toISOString() + "</updated>\r\n" +
+             " <updated>" + metadata.lastUpdate.toISOString() + "</updated>\r\n" +
              " <link rel=\"self\" title=\"DataSystem\" href=\"DataSystem\" />\r\n" +
              " <entry>\r\n" +
              "  <id>" + dataServiceEndpoint + "/DataSystem('" + config.serverName + "')</id>\r\n" +
              "  <category term=\"RESO.OData.Transport.DataSystem\" scheme=\"http://schemas.microsoft.com/ado/2007/08/dataservices/scheme\" />\r\n" +
              "  <link rel=\"edit\" title=\"DataSystem\" href=\"DataSystem('" + config.serverName + "')\" />\r\n" +
              "  <title>Data Services for " + config.serverName + "</title>\r\n" +
-             "  <updated>" + lastUpdate.toISOString() + "</updated>\r\n" +
+             "  <updated>" + metadata.lastUpdate.toISOString() + "</updated>\r\n" +
              "  <author>\r\n" +
-             "   <name>" + author + "</name>\r\n" +
+             "   <name>" + metadata.author + "</name>\r\n" +
              "  </author>\r\n" +
              "  <content type=\"application/xml\">\r\n" +
              "   <m:properties>\r\n" +
@@ -610,10 +607,23 @@ console.log(bannerText);
       var serverProtocol = config.protocol || protocol || "http";
 
       app.use(serverPath, $data.ODataServer(type));
+
       var dataSystemPath = "/DataSystem.svc";    
       var resourceEndpoint = serverProtocol + "://" + serverHost + ":" + serverPort + serverPath;
       var dataServiceEndpoint = serverProtocol + "://" + serverHost + ":" + serverPort + dataSystemPath;
-      app.use(dataSystemPath, $data.DataServiceServer(type, dataServiceEndpoint, resourceEndpoint, resourceList));
+      var metadata = {
+        author: config.serverName || "unknown",
+        version: "unknown"
+      };
+      if (!config.metadata) {
+        var pjson = JSON.parse(fs.readFileSync("./node_modules/reso-data-dictionary/package.json", "utf8"));
+        metadata.author = pjson.author.name;
+        metadata.version = pjson.version;
+        metadata.lastUpdate= fs.statSync("./node_modules/reso-data-dictionary/index.js").mtime;
+      } else {
+        metadata.lastUpdate = fs.statSync(config.metadata).mtime;
+      }
+      app.use(dataSystemPath, $data.DataServiceServer(type, dataServiceEndpoint, resourceEndpoint, resourceList, metadata));
 
       app.listen(serverPort, serverHost);
 
