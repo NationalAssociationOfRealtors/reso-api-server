@@ -4,14 +4,15 @@ var fs = require('fs')
   , crypto = require("crypto")
   , randomstring = require("just.randomstring")
   , nonce = randomstring(16)
-  , transportVersion = "0.9";
+  , transportVersion = "0.9"
+  , connect = require('connect');
 
 window.DOMParser = require('xmldom').DOMParser;
 
 //
 // functions shared between endpoints
 //
-function basicAuthFn(config, connect, req, res, next){
+function basicAuthFn(config, req, res, next){
   if (!config.basicAuth) {
     return next();
   }
@@ -33,7 +34,7 @@ function digestAuthFn(config, req, res, next){
   }
 };
 
-function queryFn(connect, req, res, next){
+function queryFn(req, res, next){
   if (!req.query) {
     connect.query()(req, res, next);
   } else next();
@@ -59,7 +60,7 @@ function errorFn(req, res, next, callback) {
   });
 };
     
-function errorHandlerFn(config, connect, err, req, res, next) {
+function errorHandlerFn(config, err, req, res, next) {
   if (config.errorHandler) {
     connect.errorHandler.title = typeof config.errorHandler == "string" ?  config.errorHandler : config.provider.databaseName;
     connect.errorHandler()(err, req, res, next);
@@ -71,22 +72,20 @@ function errorHandlerFn(config, connect, err, req, res, next) {
 //
 // resource endpoint
 //    
-$data.ODataServer = function(type, db){
+$data.ODataServer = function(config){
 
-    var connect = require("connect");
-   
-    var config = typeof type === "object" ? type : {};
-    var type = config.type || type;
-    config.database = config.database || db || type.name;
-    if (!config.provider) config.provider = {};
-    config.provider.name = config.provider.name || "mongoDB";
-    config.provider.databaseName = config.provider.databaseName || config.database || db || type.name;
-    config.provider.responseLimit = config.provider.responseLimit || config.responseLimit || 100;
-    config.provider.user = config.provider.user || config.user;
-    config.provider.checkPermission = config.provider.checkPermission || config.checkPermission;
-    config.provider.externalIndex = config.externalIndex;
-  
-    var serviceType = $data.Class.defineEx(type.fullName + ".Service", [type, $data.ServiceBase]);
+    config.database = config.type.name;
+    config.provider = {
+      name: "mongoDB",
+      databaseName: config.type.name,
+      address: config.databaseAddress,
+      port: config.databasePort,
+      responseLimit: config.responseLimit || 100,
+      user: config.user,
+      checkPermission: config.checkPermission,
+      externalIndex: config.externalIndex
+    };
+    var serviceType = $data.Class.defineEx(config.type.fullName + ".Service", [config.type, $data.ServiceBase]);
     serviceType.annotateFromVSDoc();
 
     function postProcessFn(req, res){
@@ -219,9 +218,9 @@ console.log('!OPTIONS');
 
       switch(config.authType) {
         case "Basic":
-          basicAuthFn(config, connect, req, res, function(){
+          basicAuthFn(config, req, res, function(){
             config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-            queryFn(connect, req, res, function(){
+            queryFn(req, res, function(){
               bodyFn(req, res, function(){
                 simpleBodyFn(req, res, function(){
                   errorFn(req, res, next, function(){
@@ -256,7 +255,7 @@ console.log('!OPTIONS');
         case "Digest":
           digestAuthFn(config, req, res, function(){
             config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-            queryFn(connect, req, res, function(){
+            queryFn(req, res, function(){
               bodyFn(req, res, function(){
                 simpleBodyFn(req, res, function(){
                   errorFn(req, res, next, function(){
@@ -290,7 +289,7 @@ console.log('!OPTIONS');
           break
         default:
           config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-          queryFn(connect, req, res, function(){
+          queryFn(req, res, function(){
             bodyFn(req, res, function(){
               simpleBodyFn(req, res, function(){
                 errorFn(req, res, next, function(){
@@ -328,12 +327,7 @@ console.log('!OPTIONS');
 //
 // DataService (discovery) endpoint
 //    
-$data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, resourceList, metadata){
-
-  var connect = require("connect");
-   
-  var config = typeof type === "object" ? type : {};
-  var type = config.type || type;
+$data.DataServiceServer = function(config, dataServiceEndpoint, resourceEndpoint, resourceList, metadata){
 
   function dataServiceMetadata(req, res, next) {
 
@@ -403,9 +397,9 @@ $data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, 
     var self = this;
     switch(config.authType) {
       case "Basic":
-        basicAuthFn(config, connect, req, res, function(){
+        basicAuthFn(config, req, res, function(){
           config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-          queryFn(connect, req, res, function(){
+          queryFn(req, res, function(){
             errorFn(req, res, next, function(){
               var aQuery = decodeURIComponent(req._parsedUrl.query);
               switch (aQuery) {
@@ -417,7 +411,7 @@ $data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, 
                   break;
                 default:
                   res.statusCode = 500;
-                  errorHandlerFn(config, connect, "Unknown DataService Query " + aQuery, req, res, next);
+                  errorHandlerFn(config, "Unknown DataService Query " + aQuery, req, res, next);
               }
             }); // errorFn
           }); // queryFn
@@ -426,7 +420,7 @@ $data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, 
       case "Digest":
         digestAuthFn(config,req, res, function(){
           config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-          queryFn(connect, req, res, function(){
+          queryFn(req, res, function(){
             errorFn(req, res, next, function(){
               var aQuery = decodeURIComponent(req._parsedUrl.query);
               switch (aQuery) {
@@ -438,7 +432,7 @@ $data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, 
                   break;
                 default:
                   res.statusCode = 500;
-                  errorHandlerFn(config, connect, "Unknown DataService Query " + aQuery, req, res, next);
+                  errorHandlerFn(config, "Unknown DataService Query " + aQuery, req, res, next);
               }
             }); // errorFn
           }); // queryFn
@@ -446,7 +440,7 @@ $data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, 
         break
       default:
         config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-        queryFn(connect, req, res, function(){
+        queryFn(req, res, function(){
           errorFn(req, res, next, function(){
             var aQuery = decodeURIComponent(req._parsedUrl.query);
             switch (aQuery) {
@@ -458,7 +452,7 @@ $data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, 
                   break;
               default:
                 res.statusCode = 500;
-                errorHandlerFn(config, connect, "Unknown DataService Query " + aQuery, req, res, next);
+                errorHandlerFn(config, "Unknown DataService Query " + aQuery, req, res, next);
             }
           }); // errorFn
         }); // queryFn
@@ -470,7 +464,7 @@ $data.DataServiceServer = function(type, dataServiceEndpoint, resourceEndpoint, 
 //
 // http service
 //
-$data.createODataServer = function(type, path, port, host, protocol, certificates) {
+$data.createODataServer = function(config) {
 
   var bannerWidth = 78;
   function bannerTop() {
@@ -512,8 +506,6 @@ console.log(bannerText);
 //
 // general configuration items
 // 
-  var config = typeof type === 'object' ? type : {};
-
   var projectName = "RESO API Server";
   config.serverName = config.serverName || projectName;
 
@@ -551,8 +543,10 @@ console.log(bannerText);
 //
 // indexing 
 //
-  var Db = require('mongodb').Db , Server = require('mongodb').Server;
-  var db = new Db("reso", new Server("127.0.0.1", 27017), { safe : false } );
+  config.databaseAddress = "127.0.0.1";
+  config.databasePort = 27017;
+  var Db = require("mongodb").Db , Server = require("mongodb").Server;
+  var db = new Db(config.type.name, new Server(config.databaseAddress, config.databasePort), { safe : false } );
   db.open(function(err, db) {
     if (err) throw err;
 
@@ -561,13 +555,12 @@ console.log(bannerText);
 // - collections not using guid as a key
 // - creationDate by collection
 //
-    var definitions = type.type.memberDefinitions;
+    var definitions = config.type.memberDefinitions;
+    var resourceDate = new Date();
     var indexList = {};
     var resourceList = {};
-    var resourceDate = new Date();
     for (dName in definitions) {
-      var pos = dName.indexOf("$");
-      if (pos === 0) {
+      if (definitions[dName] !== undefined) {
         if (definitions[dName].kind == "property") {
           if (definitions[dName].type.fullName == "$data.EntitySet") {
             resourceList[dName.substring(1)] = resourceDate;
@@ -585,29 +578,49 @@ console.log(bannerText);
 
     function startup() {
       db.close();
-      var connect = require('connect');
+
+//
+// transport
+//
+      var getIPAddress = function() {
+        var interfaces = require('os').networkInterfaces();
+        for (var devName in interfaces) {
+          var iface = interfaces[devName];
+          for (var i = iface.length; i--;) {
+            var alias = iface[i];
+            if (alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal) {
+                return alias.address;
+            }
+          }
+        }
+
+        return '0.0.0.0';
+      }
+
+      var serverHost = config.host || getIPAddress() || "localhost";
+      var serverPort = config.port || 80;
+      var serverProtocol = config.protocol || "http";
+
       var app;
-      if (protocol == "http" ) {
+      if (serverProtocol == "http" ) {
         app = connect();
       } else {
-        var serverCertificates = config.certificates || certificates;
-        app = connect(serverCertificates);
+        app = connect(config.certificates);
       }
-      var serverPath = config.path || path || "/";
+      var serverPath = config.path || "/";
 
       if (config.compression) {
         app.use(connect.compress());
       }
 
 //
-// handlers
+// Resource Endpoint handler
 //
-      var serverHost = config.host || host;
-      var serverPort = config.port || port || 80;
-      var serverProtocol = config.protocol || protocol || "http";
+      app.use(serverPath, $data.ODataServer(config));
 
-      app.use(serverPath, $data.ODataServer(type));
-
+//
+// DataSystem Endpoint handler
+//
       var dataSystemPath = "/DataSystem.svc";    
       var resourceEndpoint = serverProtocol + "://" + serverHost + ":" + serverPort + serverPath;
       var dataServiceEndpoint = serverProtocol + "://" + serverHost + ":" + serverPort + dataSystemPath;
@@ -623,7 +636,7 @@ console.log(bannerText);
       } else {
         metadata.lastUpdate = fs.statSync(config.metadata).mtime;
       }
-      app.use(dataSystemPath, $data.DataServiceServer(type, dataServiceEndpoint, resourceEndpoint, resourceList, metadata));
+      app.use(dataSystemPath, $data.DataServiceServer(config, dataServiceEndpoint, resourceEndpoint, resourceList, metadata));
 
       app.listen(serverPort, serverHost);
 
@@ -644,6 +657,7 @@ console.log(bannerText);
     bannerTop();
     bannerLine("Resource Endpoint");
     bannerSpacer();
+
 //
 // no need to apply special indexing if all collections use guid 
 //
