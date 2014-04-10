@@ -65,7 +65,7 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
 
  COMPRESSION: A boolean value that controls whether requested information is compressed.  Compressed is much smaller than normal data but requires more server resources to generate.  If the parameter is set to "true", them data will be compressed if requested.
 
- SERVER\_DOMAIN: The dns name of the computer that will be running the RESO API Server.
+ SERVER\_DOMAIN: The dns name of the computer that will be running the RESO API Server.  If not supplied, the IP Address of the computer will be used.  
 
  SERVER\_NAME: The name to display in the console at startup.  Useful for private labelling.
 
