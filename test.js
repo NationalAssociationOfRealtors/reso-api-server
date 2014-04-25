@@ -67,11 +67,14 @@ function startServer(userConfig) {
     require(userConfig["METADATA_DEFINITION"]);
     systemMetadata = userConfig["METADATA_DEFINITION"];
   }
-  var certificates = {
-    key:    fs.readFileSync(userConfig["SERVER_KEY"]),
-    cert:   fs.readFileSync(userConfig["SERVER_CERTIFICATE"]),
-    ca:     fs.readFileSync(userConfig["CA_CERTIFICATE"])
-  };
+  var certificates = {};
+  if (userConfig["SERVER_PROTOCOL"] == 'https') {
+    certificates = {
+      key:    fs.readFileSync(userConfig["SERVER_KEY"]),
+      cert:   fs.readFileSync(userConfig["SERVER_CERTIFICATE"]),
+      ca:     fs.readFileSync(userConfig["CA_CERTIFICATE"])
+    };
+  }
 
 //
 // create server 

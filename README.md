@@ -38,7 +38,7 @@ The following procedure should be followed to setup the server:
 + Create a configuration file or use the sample file supplied by the distribution:
 
  ```shell
-  cp ../node_modules/reso-api-server/samples/service.js . 
+  cp ../node_modules/reso-api-server/samples/service.conf . 
  ```
 
 + Configure the server using the guide below in the **Configuration** section.
