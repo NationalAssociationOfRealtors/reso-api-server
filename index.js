@@ -5,7 +5,9 @@ var fs = require('fs')
   , randomstring = require("just.randomstring")
   , nonce = randomstring(16)
   , transportVersion = "0.9"
-  , connect = require('connect');
+  , connect = require('connect')
+  , http = require('http')
+    https = require('https');
 
 window.DOMParser = require('xmldom').DOMParser;
 
@@ -638,7 +640,11 @@ console.log(bannerText);
       }
       app.use(dataSystemPath, $data.DataServiceServer(config, dataServiceEndpoint, resourceEndpoint, resourceList, metadata));
 
-      app.listen(serverPort, serverHost);
+      if (serverProtocol == "http" ) {
+        http.createServer(app).listen(serverPort, serverHost);
+      } else {
+        https.createServer(config.certificates, app).listen(serverPort, serverHost);
+      }
 
 //
 // console notification
