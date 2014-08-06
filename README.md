@@ -89,6 +89,8 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
 
 + HTTPS Certificates 
 
+ CA\_CERTIFICATE: The path to the file that contains a Certificate Authority (CA) certficate.  This value is only required if the SERVER\_PROTOCOL is "https".
+
  SERVER\_CERTIFICATE: The path to the file that contains the server's certficate.  This value is only required if the SERVER\_PROTOCOL is "https".
 
  SERVER\_KEY: The path to the file that contains the server's secret key.  This value is only required if the SERVER\_PROTOCOL is "https".
