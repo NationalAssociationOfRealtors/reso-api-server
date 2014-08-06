@@ -7,6 +7,8 @@ var fs = require('fs')
   , transportVersion = "0.9"
   , compression = require('compression')
   , connect = require('connect')
+  , parse = require('url').parse
+  , qs = require('qs')
   , http = require('http')
     https = require('https');
 
@@ -39,7 +41,10 @@ function digestAuthFn(config, req, res, next){
 
 function queryFn(req, res, next){
   if (!req.query) {
-    connect.query()(req, res, next);
+    req.query = ~req.url.indexOf('?')
+      ? qs.parse(parse(req.url).query)
+      : {};
+    next();
   } else next();
 };
 
@@ -159,12 +164,7 @@ console.log("Consider increasing PROCESS_WAIT configuration value");
 */
     
     function bodyFn(req, res, next){
-      if (!req.body){
-        connect.json()(req, res, function(err){
-          if (err) return next(err);
-          connect.urlencoded()(req, res, next);
-        });
-      } else next();
+      next();
     };
     
     function simpleBodyFn(req, res, next) {
