@@ -5,6 +5,7 @@ var fs = require('fs')
   , randomstring = require("just.randomstring")
   , nonce = randomstring(16)
   , transportVersion = "0.9"
+  , compression = require('compression')
   , connect = require('connect')
   , http = require('http')
     https = require('https');
@@ -604,15 +605,12 @@ console.log(bannerText);
       var serverProtocol = config.protocol || "http";
 
       var app;
-      if (serverProtocol == "http" ) {
-        app = connect();
-      } else {
-        app = connect(config.certificates);
-      }
+      app = connect();
+
       var serverPath = config.path || "/";
 
       if (config.compression) {
-        app.use(connect.compress());
+        app.use(compression());
       }
 
 //
