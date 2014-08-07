@@ -10,7 +10,8 @@ var fs = require('fs')
   , parse = require('url').parse
   , qs = require('qs')
   , http = require('http')
-    https = require('https');
+  , https = require('https')
+    auth = require('basic-auth');
 
 window.DOMParser = require('xmldom').DOMParser;
 
@@ -22,7 +23,23 @@ function basicAuthFn(config, req, res, next){
     return next();
   }
   if (typeof config.basicAuth == 'function'){
-    connect.basicAuth(config.basicAuth)(req, res, next);
+    if (!config.authRealm) {
+      config.authRealm = "RESO API SERVER";
+    }
+    var user = auth(req);
+    if (user == null) {
+      res.statusCode = 401;
+      res.setHeader("WWW-Authenticate", 'Basic realm="' + config.authRealm + '"');
+      res.end("Unauthorized");
+    } else {
+      if (config.basicAuth(user.name, user.pass)) {
+        next();
+      } else {
+        res.statusCode = 401;
+        res.setHeader("WWW-Authenticate", 'Basic realm="' + config.authRealm + '"');
+        res.end("Unauthorized");
+      }
+    }
   } else {
     next();
   }
