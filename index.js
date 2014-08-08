@@ -18,17 +18,27 @@ window.DOMParser = require('xmldom').DOMParser;
 //
 // functions shared between endpoints
 //
-function unauthorizedBasic(res, realm){
-  res.statusCode = 401;
-  res.setHeader("WWW-Authenticate", 'Basic realm="' + realm + '"');
-  res.end("Unauthorized");
-}
+function preProcessFn(req, res, next){
+  if (!req.query) {
+    req.query = ~req.url.indexOf('?')
+      ? qs.parse(parse(req.url).query)
+      : {};
+  }
+  next();
+};
 
 function basicAuthFn(config, req, res, next){
   if (!config.basicAuth) {
     return next();
   }
   if (typeof config.basicAuth == 'function'){
+
+    function unauthorizedBasic(res, realm){
+      res.statusCode = 401;
+      res.setHeader("WWW-Authenticate", 'Basic realm="' + realm + '"');
+      res.end("Unauthorized");
+    }
+
     var user = auth(req);
     if (user == null) {
       unauthorizedBasic(res, config.authRealm);
@@ -54,15 +64,6 @@ function digestAuthFn(config, req, res, next){
   } else {
     next();
   }
-};
-
-function preProcessFn(req, res, next){
-  if (!req.query) {
-    req.query = ~req.url.indexOf('?')
-      ? qs.parse(parse(req.url).query)
-      : {};
-  }
-  next();
 };
 
 function errorFn(req, res, next, callback) {
@@ -192,11 +193,6 @@ console.log("Consider increasing PROCESS_WAIT configuration value");
 //
       var startStamp = new Date();
       var endPointURL = unescape(req.url);
-      if (endPointURL != "/$batch") {
-        if (config.logEntry) {
-console.log(startStamp + " " + "Request " + req.method + " " + endPointURL + " received from " + req.connection.remoteAddress); 
-        }     
-      }
       if (config.provider.checkPermission){
         Object.defineProperty(req, 'checkPermission', {
           value: config.provider.checkPermission.bind(req),
@@ -234,6 +230,12 @@ console.log('!OPTIONS');
 
       function processFn(req, res, next) {
         config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
+        if (endPointURL != "/$batch") {
+          if (config.logEntry) {
+console.log(startStamp + " " + "Request " + req.method + " " + endPointURL + " by " + config.provider.user + " received from " + req.connection.remoteAddress); 
+          }     
+        }
+
         preProcessFn(req, res, function(){
 //          simpleBodyFn(req, res, function(){
           $data.JayService.OData.Utils.simpleBodyReader()(req, res, function() { 
@@ -288,133 +290,114 @@ console.log('!OPTIONS');
 //    
 $data.DataServiceServer = function(config, dataServiceEndpoint, resourceEndpoint, resourceList, metadata){
 
-  function dataServiceMetadata(req, res, next) {
-
-    function generateResourceHeader() { 
-      return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n" +
-             "<feed xml:base=\"" + dataServiceEndpoint + "/\" " +
-             "xmlns=\"http://www.w3.org/2005/Atom\" " +
-             "xmlns:d=\"http://schemas.microsoft.com/ado/2007/08/dataservices\" " +
-             "xmlns:m=\"http://schemas.microsoft.com/ado/2007/08/dataservices/metadata\" " +
-             "xmlns:georss=\"http://www.georss.org/georss\" " +
-             "xmlns:gml=\"http://www.opengis.net/gml\">\r\n" +
-             " <id>" + dataServiceEndpoint + "</id>\r\n" +
-             " <title type=\"text\">DataSystem</title>\r\n" +
-             " <updated>" + metadata.lastUpdate.toISOString() + "</updated>\r\n" +
-             " <link rel=\"self\" title=\"DataSystem\" href=\"DataSystem\" />\r\n" +
-             " <entry>\r\n" +
-             "  <id>" + dataServiceEndpoint + "/DataSystem('" + config.serverName + "')</id>\r\n" +
-             "  <category term=\"RESO.OData.Transport.DataSystem\" scheme=\"http://schemas.microsoft.com/ado/2007/08/dataservices/scheme\" />\r\n" +
-             "  <link rel=\"edit\" title=\"DataSystem\" href=\"DataSystem('" + config.serverName + "')\" />\r\n" +
-             "  <title>Data Services for " + config.serverName + "</title>\r\n" +
-             "  <updated>" + metadata.lastUpdate.toISOString() + "</updated>\r\n" +
-             "  <author>\r\n" +
-             "   <name>" + metadata.author + "</name>\r\n" +
-             "  </author>\r\n" +
-             "  <content type=\"application/xml\">\r\n" +
-             "   <m:properties>\r\n" +
-             "    <d:Name>" + config.serverName + "</d:Name>\r\n" +
-             "    <d:ServiceURI>" + dataServiceEndpoint + "</d:ServiceURI>\r\n" +
-             "    <d:DateTimeStamp m:type=\"Edm.DateTime\">" + (new Date()).toISOString() + "</d:DateTimeStamp>\r\n" +
-             "    <d:TransportVersion>" + transportVersion + "</d:TransportVersion>\r\n" +
-             "    <d:Resources m:type=\"Collection(RESO.OData.Transport.Resource)\">\r\n";
-    };
-
-    function generateResourceElement(aName, aDate) { 
-      return "    <d:element>\r\n" +
-             "     <d:Name>" + aName + "</d:Name>\r\n" +
-             "     <d:ServiceURI>" + resourceEndpoint + "</d:ServiceURI>\r\n" +
-             "     <d:Description>RESO Standard " + aName + " Resource</d:Description>\r\n" +
-             "     <d:DateTimeStamp m:type=\"Edm.DateTime\">" + aDate.toISOString() + "</d:DateTimeStamp>\r\n" +
-             "     <d:TimeZoneOffset m:type=\"Edm.Int32\">" + (0 - (aDate.getTimezoneOffset()/60))  + "</d:TimeZoneOffset>\r\n" +
-             "     <d:Localizations m:type=\"Collection(RESO.OData.Transport.Localization)\" />\r\n" +
-             "    </d:element>\r\n";
-    }
-
-    function generateResourceFooter() { 
-      return "    </d:Resources>\r\n" +
-             "    <d:ID>" + config.serverName + "</d:ID>\r\n" +
-             "   </m:properties>\r\n" +
-             "  </content>\r\n" +
-             " </entry>\r\n" +
-             "</feed>";
-    };
-
-    var aDoc = generateResourceHeader();
-    for (eName in resourceList) {
-      aDoc += generateResourceElement(eName, resourceList[eName]);
-    }
-    aDoc += generateResourceFooter();
-
-    res.statusCode = 200;
-    res.setHeader("content-type", "application/xml;charset=UTF-8");
-    res.setHeader("content-length", aDoc.length);
-    res.end(aDoc);
-  };
-
   return function(req, res, next){
     var self = this;
+
+    var startStamp = new Date();
+     
+    function processFn(req, res, next) {
+      config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
+      if (config.logEntry) {
+console.log(startStamp + " " + "Discovery Request by " + config.provider.user + " received from " + req.connection.remoteAddress); 
+      }
+
+      preProcessFn(req, res, function(){
+
+        function dataServiceMetadata(req, res, next) {
+
+          function generateResourceHeader() { 
+            return "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n" +
+                   "<feed xml:base=\"" + dataServiceEndpoint + "/\" " +
+                   "xmlns=\"http://www.w3.org/2005/Atom\" " +
+                   "xmlns:d=\"http://schemas.microsoft.com/ado/2007/08/dataservices\" " +
+                   "xmlns:m=\"http://schemas.microsoft.com/ado/2007/08/dataservices/metadata\" " +
+                   "xmlns:georss=\"http://www.georss.org/georss\" " +
+                   "xmlns:gml=\"http://www.opengis.net/gml\">\r\n" +
+                   " <id>" + dataServiceEndpoint + "</id>\r\n" +
+                   " <title type=\"text\">DataSystem</title>\r\n" +
+                   " <updated>" + metadata.lastUpdate.toISOString() + "</updated>\r\n" +
+                   " <link rel=\"self\" title=\"DataSystem\" href=\"DataSystem\" />\r\n" +
+                   " <entry>\r\n" +
+                   "  <id>" + dataServiceEndpoint + "/DataSystem('" + config.serverName + "')</id>\r\n" +
+                   "  <category term=\"RESO.OData.Transport.DataSystem\" scheme=\"http://schemas.microsoft.com/ado/2007/08/dataservices/scheme\" />\r\n" +
+                   "  <link rel=\"edit\" title=\"DataSystem\" href=\"DataSystem('" + config.serverName + "')\" />\r\n" +
+                   "  <title>Data Services for " + config.serverName + "</title>\r\n" +
+                   "  <updated>" + metadata.lastUpdate.toISOString() + "</updated>\r\n" +
+                   "  <author>\r\n" +
+                   "   <name>" + metadata.author + "</name>\r\n" +
+                   "  </author>\r\n" +
+                   "  <content type=\"application/xml\">\r\n" +
+                   "   <m:properties>\r\n" +
+                   "    <d:Name>" + config.serverName + "</d:Name>\r\n" +
+                   "    <d:ServiceURI>" + dataServiceEndpoint + "</d:ServiceURI>\r\n" +
+                   "    <d:DateTimeStamp m:type=\"Edm.DateTime\">" + (new Date()).toISOString() + "</d:DateTimeStamp>\r\n" +
+                   "    <d:TransportVersion>" + transportVersion + "</d:TransportVersion>\r\n" +
+                   "    <d:Resources m:type=\"Collection(RESO.OData.Transport.Resource)\">\r\n";
+          };
+
+          function generateResourceElement(aName, aDate) { 
+            return "    <d:element>\r\n" +
+                   "     <d:Name>" + aName + "</d:Name>\r\n" +
+                   "     <d:ServiceURI>" + resourceEndpoint + "</d:ServiceURI>\r\n" +
+                   "     <d:Description>RESO Standard " + aName + " Resource</d:Description>\r\n" +
+                   "     <d:DateTimeStamp m:type=\"Edm.DateTime\">" + aDate.toISOString() + "</d:DateTimeStamp>\r\n" +
+                   "     <d:TimeZoneOffset m:type=\"Edm.Int32\">" + (0 - (aDate.getTimezoneOffset()/60))  + "</d:TimeZoneOffset>\r\n" +
+                   "     <d:Localizations m:type=\"Collection(RESO.OData.Transport.Localization)\" />\r\n" +
+                   "    </d:element>\r\n";
+          }
+
+          function generateResourceFooter() { 
+            return "    </d:Resources>\r\n" +
+                   "    <d:ID>" + config.serverName + "</d:ID>\r\n" +
+                   "   </m:properties>\r\n" +
+                   "  </content>\r\n" +
+                   " </entry>\r\n" +
+                   "</feed>";
+          };
+
+          var aDoc = generateResourceHeader();
+          for (eName in resourceList) {
+            aDoc += generateResourceElement(eName, resourceList[eName]);
+          }
+          aDoc += generateResourceFooter();
+
+          res.statusCode = 200;
+          res.setHeader("content-type", "application/xml;charset=UTF-8");
+          res.setHeader("content-length", Buffer.byteLength(aDoc));
+          res.end(aDoc);
+        };
+
+        errorFn(req, res, next, function(){
+          var aQuery = decodeURIComponent(req._parsedUrl.query);
+          switch (aQuery) {
+            case "DataSystem":
+              dataServiceMetadata(req, res, next);
+              break;
+            case "DataSystem('" + config.serverName + "')":
+              dataServiceMetadata(req, res, next);
+              break;
+            default:
+              res.statusCode = 500;
+              errorHandlerFn(config, "Unknown DataService Query " + aQuery, req, res, next);
+          }
+        }); // errorFn
+      }); // preProcessFn
+    }
+
     switch(config.authType) {
       case "Basic":
         basicAuthFn(config, req, res, function(){
-          config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-          queryFn(req, res, function(){
-            errorFn(req, res, next, function(){
-              var aQuery = decodeURIComponent(req._parsedUrl.query);
-              switch (aQuery) {
-                case "DataSystem":
-                  dataServiceMetadata(req, res, next);
-                  break;
-                case "DataSystem('" + config.serverName + "')":
-                  dataServiceMetadata(req, res, next);
-                  break;
-                default:
-                  res.statusCode = 500;
-                  errorHandlerFn(config, "Unknown DataService Query " + aQuery, req, res, next);
-              }
-            }); // errorFn
-          }); // queryFn
+          processFn(req, res, next);
         });
         break
       case "Digest":
         digestAuthFn(config,req, res, function(){
-          config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-          queryFn(req, res, function(){
-            errorFn(req, res, next, function(){
-              var aQuery = decodeURIComponent(req._parsedUrl.query);
-              switch (aQuery) {
-                case "DataSystem":
-                  dataServiceMetadata(req, res, next);
-                  break;
-                case "DataSystem('" + config.serverName + "')":
-                  dataServiceMetadata(req, res, next);
-                  break;
-                default:
-                  res.statusCode = 500;
-                  errorHandlerFn(config, "Unknown DataService Query " + aQuery, req, res, next);
-              }
-            }); // errorFn
-          }); // queryFn
+          processFnx(req, res, next);
         });
         break
       default:
         config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-        queryFn(req, res, function(){
-          errorFn(req, res, next, function(){
-            var aQuery = decodeURIComponent(req._parsedUrl.query);
-            switch (aQuery) {
-              case "DataSystem":
-                dataServiceMetadata(req, res, next);
-                break;
-              case "DataSystem('" + config.serverName + "')":
-                dataServiceMetadata(req, res, next);
-                  break;
-              default:
-                res.statusCode = 500;
-                errorHandlerFn(config, "Unknown DataService Query " + aQuery, req, res, next);
-            }
-          }); // errorFn
-        }); // queryFn
+        processFnx(req, res, next);
     } // switch authType
 
   }; // return
