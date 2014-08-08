@@ -18,26 +18,26 @@ window.DOMParser = require('xmldom').DOMParser;
 //
 // functions shared between endpoints
 //
+function unauthorizedBasic(res, realm){
+  res.statusCode = 401;
+  res.setHeader("WWW-Authenticate", 'Basic realm="' + realm + '"');
+  res.end("Unauthorized");
+}
+
 function basicAuthFn(config, req, res, next){
   if (!config.basicAuth) {
     return next();
   }
   if (typeof config.basicAuth == 'function'){
-    if (!config.authRealm) {
-      config.authRealm = "RESO API SERVER";
-    }
     var user = auth(req);
     if (user == null) {
-      res.statusCode = 401;
-      res.setHeader("WWW-Authenticate", 'Basic realm="' + config.authRealm + '"');
-      res.end("Unauthorized");
+      unauthorizedBasic(res, config.authRealm);
     } else {
       if (config.basicAuth(user.name, user.pass)) {
+        req.user = user.name;
         next();
       } else {
-        res.statusCode = 401;
-        res.setHeader("WWW-Authenticate", 'Basic realm="' + config.authRealm + '"');
-        res.end("Unauthorized");
+        unauthorizedBasic(res, config.authRealm);
       }
     }
   } else {
@@ -56,13 +56,13 @@ function digestAuthFn(config, req, res, next){
   }
 };
 
-function queryFn(req, res, next){
+function preProcessFn(req, res, next){
   if (!req.query) {
     req.query = ~req.url.indexOf('?')
       ? qs.parse(parse(req.url).query)
       : {};
-    next();
-  } else next();
+  }
+  next();
 };
 
 function errorFn(req, res, next, callback) {
@@ -178,15 +178,11 @@ console.log("Consider increasing PROCESS_WAIT configuration value");
             }
         }else next();
     };
-*/
-    
-    function bodyFn(req, res, next){
-      next();
-    };
     
     function simpleBodyFn(req, res, next) {
       $data.JayService.OData.Utils.simpleBodyReader()(req, res, next);
     };
+*/
 
     return function(req, res, next){
       var self = this;
@@ -236,110 +232,53 @@ console.log('!OPTIONS');
         res.setHeader("Cache-Control", "max-age=1");
 */
 
+      function processFn(req, res, next) {
+        config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
+        preProcessFn(req, res, function(){
+//          simpleBodyFn(req, res, function(){
+          $data.JayService.OData.Utils.simpleBodyReader()(req, res, function() { 
+            errorFn(req, res, next, function(){
+              req.reso = {
+                "externalIndex" : config.externalIndex, 
+                "startTime": startStamp.getTime(),
+                "userName" : config.provider.user 
+              }
+              $data.JayService.createAdapter(
+                serviceType, 
+                function() {
+                  return new serviceType(config.provider);
+                }
+              ).call(
+                  self, 
+                  req, 
+                  res, 
+                  function(err) {
+                    if (typeof err === "string") {
+                      err = new Error(err);
+                    }
+                    errorHandlerFn(err, req, res, next);
+                  }
+                          
+              );
+              postProcessFn(req, res);
+            }); // errorFn
+          }); // simpleBodyFn
+        }); // preProcessFn
+      };
+
       switch(config.authType) {
         case "Basic":
           basicAuthFn(config, req, res, function(){
-            config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-            queryFn(req, res, function(){
-              bodyFn(req, res, function(){
-                simpleBodyFn(req, res, function(){
-                  errorFn(req, res, next, function(){
-
-                    req.reso = {
-                      "externalIndex" : config.externalIndex,
-                      "startTime": startStamp.getTime(),
-                        "userName" : config.provider.user 
-                    }
-                    $data.JayService.createAdapter(
-                      serviceType, 
-                      function() {
-                        return new serviceType(config.provider);
-                      }
-                    ).call(
-                        self, 
-                        req, 
-                        res, 
-                        function(err) {
-                          if (typeof err === "string") err = new Error(err);
-                          errorHandlerFn(err, req, res, next);
-                        }
-                    );
-                    postProcessFn(req, res);
-
-                  }); // errorFn
-                }); // simpeBodyFn
-              }); // bodyFn
-            }); // queryFn
+            processFn(req, res, next);
           }); // basicAuthFn
           break
         case "Digest":
           digestAuthFn(config, req, res, function(){
-            config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-            queryFn(req, res, function(){
-              bodyFn(req, res, function(){
-                simpleBodyFn(req, res, function(){
-                  errorFn(req, res, next, function(){
-
-                    req.reso = {
-                      "externalIndex" : config.externalIndex, 
-                      "startTime": startStamp.getTime(),
-                      "userName" : config.provider.user 
-                    }
-                    $data.JayService.createAdapter(
-                      serviceType, 
-                      function() {
-                        return new serviceType(config.provider);
-                      }
-                    ).call(
-                        self, 
-                        req, 
-                        res, 
-                        function(err) {
-                          if (typeof err === "string") err = new Error(err);
-                          errorHandlerFn(err, req, res, next);
-                        }
-                    );
-                    postProcessFn(req, res);
-
-                  }); // errorFn
-                }); // simpleBodyFn
-              }); // bodyFn
-            }); // queryFn
+            processFn(req, res, next);
           }); // digestAuthFn
           break
         default:
-          config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-          queryFn(req, res, function(){
-            bodyFn(req, res, function(){
-              simpleBodyFn(req, res, function(){
-                errorFn(req, res, next, function(){
-
-                    req.reso = {
-                      "externalIndex" : config.externalIndex, 
-                      "startTime": startStamp.getTime(),
-                      "userName" : config.provider.user 
-                    }
-                    $data.JayService.createAdapter(
-                      serviceType, 
-                      function() {
-                        return new serviceType(config.provider);
-                      }
-                    ).call(
-                        self, 
-                        req, 
-                        res, 
-                        function(err) {
-                          if (typeof err === "string") err = new Error(err);
-                          errorHandlerFn(err, req, res, next);
-                        }
-                          
-                    );
-                    postProcessFn(req, res);
-
-                }); // errorFn
-              }); // simpleBodyFn
-            }); // bodyFn
-          }); // queryFn
+          processFn(req, res, next);
       } // switch authType
     }; // return
 };
@@ -541,6 +480,7 @@ console.log(bannerText);
 
   switch(config.authType) {
     case "Basic":
+      config.authRealm = config.authRealm || config.serverName;
       bannerLine("- Supports " + config.authType + " Authentication");
       break;
     case "Digest":
