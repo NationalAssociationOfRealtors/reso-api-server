@@ -27,11 +27,59 @@ function preProcessFn(req, res, next){
   next();
 };
 
+function bearerFn(config, parts, req, res, next){
+  var url = require("url");
+  var parsedURI = url.parse(config.oauth2ServerUrl);
+  var post_options = {
+    host: parsedURI.hostname,
+    port: parsedURI.port,
+    path: parsedURI.path,
+    method: "GET", 
+    rejectUnauthorized: false,
+    headers: {
+      "Authorization": parts[0] + " " + parts[1],
+    }
+  };
+  var post_req = https.request(post_options, function(post_res) {
+    post_res.setEncoding('utf8');
+    var msg = "";
+    post_res.on('data', function (chunk) {
+      msg += chunk;
+    });
+    post_res.on("end", function () {
+//
+// set the user in the request
+//
+      msg = JSON.parse(msg);
+      req.user = req.remoteUser = msg.name;
+//
+// move on
+//
+      next();
+    });
+  });
+
+  post_req.end();
+
+  post_req.on('error', function(e) { 
+console.trace(e);
+  });
+};
+    
 function basicAuthFn(config, req, res, next){
   if (!config.basicAuth) {
     return next();
   }
   if (typeof config.basicAuth == 'function'){
+
+    var authorization = req.headers.authorization;
+//
+// Determine if Bearer authorization header is sent
+//
+    var parts = authorization.split(" ");
+    if (parts[0] == "Bearer") {
+      return bearerFn(config, parts, req, res, next);
+    }
 
     function unauthorizedBasic(res, realm){
       res.statusCode = 401;
@@ -44,7 +92,7 @@ function basicAuthFn(config, req, res, next){
       unauthorizedBasic(res, config.authRealm);
     } else {
       if (config.basicAuth(user.name, user.pass)) {
-        req.user = user.name;
+        req.user = req.remoteUser = user.name;
         next();
       } else {
         unauthorizedBasic(res, config.authRealm);
@@ -60,7 +108,7 @@ function digestAuthFn(config, req, res, next){
     return next();
   }
   if (typeof config.digestAuth == 'function'){
-    digestAuth(config.digestAuth, req, res, config.authRealm, next);
+    digestAuth(config, req, res, config.authRealm, next);
   } else {
     next();
   }
@@ -705,19 +753,23 @@ console.log(bannerText);
 
 module.exports = exports = $data.ODataServer;
 
-function digestAuth(callback, req, res, realm, next) {
+function digestAuth(config, req, res, realm, next) {
+  var callback = config.digestAuth;
   var authorization = req.headers.authorization;
 
   if (req.user) return next();
   if (!authorization) return unauthorizedDigest(res, realm);
 
 //
-// Determine if Digest authorization header is sent
+// Determine if Bearer authorization header is sent
 //
-//console.log(authorization);
   var parts = authorization.split(" ");
   if (parts[0] !== "Digest") {
-    return unauthorizedDigest(res, realm);
+    if (parts[0] == "Bearer") {
+      return bearerFn(config, parts, req, res, next);
+    } else {
+      return unauthorizedDigest(res, realm);
+    }
   }
 
 //

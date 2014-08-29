@@ -101,6 +101,9 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
   
  AUTH\_TYPE: The type of authentication supported by the RESO API Server.  Valid values are "Basic" and "Digest".
 
++ OAuth2 Service
+
+ OAUTH2\_SERVER\_URL: The url of the OAuth2 server that can satify a userInfo request.
   
 ### Avoiding Duplicate Records 
 
