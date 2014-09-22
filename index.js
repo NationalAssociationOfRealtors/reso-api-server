@@ -1,7 +1,6 @@
 require('jaydata-reso');
 
 var fs = require('fs')
-  , crypto = require("crypto")
   , randomstring = require("just.randomstring")
   , nonce = randomstring(16)
   , transportVersion = "0.9"
@@ -11,7 +10,8 @@ var fs = require('fs')
   , qs = require('qs')
   , http = require('http')
   , https = require('https')
-    auth = require('basic-auth');
+  , auth = require('basic-auth')
+  , url = require("url");
 
 window.DOMParser = require('xmldom').DOMParser;
 
@@ -28,7 +28,6 @@ function preProcessFn(req, res, next){
 };
 
 function bearerFn(config, parts, req, res, next){
-  var url = require("url");
   var parsedURI = url.parse(config.oauth2ServerUrl);
   var post_options = {
     host: parsedURI.hostname,
@@ -40,7 +39,8 @@ function bearerFn(config, parts, req, res, next){
       "Authorization": parts[0] + " " + parts[1],
     }
   };
-  var post_req = https.request(post_options, function(post_res) {
+  var https_auth = require("https");
+  var post_req = https_auth.request(post_options, function(post_res) {
     post_res.setEncoding('utf8');
     var msg = "";
     post_res.on('data', function (chunk) {
@@ -67,51 +67,216 @@ console.trace(e);
 };
     
 function basicAuthFn(config, req, res, next){
-  if (!config.basicAuth) {
+  if (!config.basicAuth && !config.authServerUrl) {
     return next();
   }
-  if (typeof config.basicAuth == 'function'){
 
-    var authorization = req.headers.authorization;
+  var authorization = req.headers.authorization;
 //
 // Determine if Bearer authorization header is sent
 //
-    var parts = authorization.split(" ");
-    if (parts[0] == "Bearer") {
-      return bearerFn(config, parts, req, res, next);
-    }
+  var parts = authorization.split(" ");
+  if (parts[0] == "Bearer") {
+    return bearerFn(config, parts, req, res, next);
+  }
 
-    function unauthorizedBasic(res, realm){
-      res.statusCode = 401;
-      res.setHeader("WWW-Authenticate", 'Basic realm="' + realm + '"');
-      res.end("Unauthorized");
-    }
+  function unauthorizedBasic(res){
+    res.statusCode = 401;
+    res.setHeader("WWW-Authenticate", 'Basic realm="' + config.authRealm + '"');
+    res.end("Unauthorized");
+  }
 
-    var user = auth(req);
-    if (user == null) {
-      unauthorizedBasic(res, config.authRealm);
-    } else {
+  var user = auth(req);
+  if (user == null) {
+    unauthorizedBasic(res);
+  } else {
+    if (typeof config.basicAuth == 'function'){
       if (config.basicAuth(user.name, user.pass)) {
         req.user = req.remoteUser = user.name;
         next();
       } else {
-        unauthorizedBasic(res, config.authRealm);
+        unauthorizedBasic(res);
       }
+    } else {
+      var querystring = require("querystring");
+      var post_data = querystring.stringify({
+        "user_name" : user.name 
+      });
+      var parsedURI = url.parse(config.authServerUrl);
+      var post_options = {
+        host: parsedURI.hostname,
+        port: parsedURI.port,
+        path: parsedURI.path,
+        method: "POST", 
+        rejectUnauthorized: false,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Length": post_data.length
+        }
+      };
+      var https_auth = require("https");
+      var post_req = https_auth.request(post_options, function(post_res) {
+        post_res.setEncoding('utf8');
+        var msg = "";
+        post_res.on('data', function (chunk) {
+          msg += chunk;
+        });
+        post_res.on("end", function () {
+          msg = JSON.parse(msg);
+          if (!msg) {
+            unauthorizedBasic(res);
+          }
+          if (user.pass == msg.user_pass) {
+//
+// set the user in the request
+//
+            req.user = req.remoteUser = user.name;
+            next();
+          } else {
+            unauthorizedBasic(res);
+          }
+        });
+      });
+
+      post_req.write(post_data);
+
+      post_req.end();
+
+      post_req.on('error', function(e) { 
+console.trace(e);
+      });
     }
-  } else {
-    next();
   }
 };
     
 function digestAuthFn(config, req, res, next){
-  if (!config.digestAuth) {
+  if (!config.digestAuth && !config.authServerUrl) {
     return next();
   }
-  if (typeof config.digestAuth == 'function'){
-    digestAuth(config, req, res, config.authRealm, next);
-  } else {
-    next();
+
+  if (req.user) return next();
+
+  function unauthorizedDigest(res, realm) {
+    res.statusCode = 401;
+    res.setHeader("WWW-Authenticate", 'Digest realm="' + realm + '", nonce="' + nonce + '", qop=auth');
+    res.end("Unauthorized");
+  };
+
+  var authorization = req.headers.authorization;
+  if (!authorization) return unauthorizedDigest(res, config.authRealm);
+
+//
+// Determine if Bearer authorization header is sent
+//
+  var authparts = authorization.split(" ");
+  if (authparts[0] !== "Digest") {
+    if (authparts[0] == "Bearer") {
+      return bearerFn(config, authparts, req, res, next);
+    } else {
+      return unauthorizedDigest(res, config.authRealm);
+    }
   }
+
+//
+// determine if the correct number of arguments is in the Digest header
+//
+//  var pos = authorization.indexOf(" ");
+//  authorization = authorization.substring(pos);
+//  var parts = authorization.split(",");
+  var authorizationTokens = authorization.substring(authorization.indexOf(" "));
+//  var pos = authorization.indexOf(" ");
+//  var authorizationTokens = authorization.substring(pos);
+  var parts = authorizationTokens.split(",");
+  if (parts.length !== 8) {
+    return unauthorizedDigest(res, config.authRealm);
+  }
+
+//
+// breakdown the header
+//
+  var breakdown = new Array();
+  for (var i = parts.length; i--;) {
+//    var pieces = parts[i].split("=");
+//console.dir(parts[i]);
+   // breakdown[pieces[0].trim()] = pieces[1].replace(/["']/g, "");
+    var piece = parts[i].match(/^\s*?(\w+)="?([^"]*)"?\s*?$/);
+    if (piece.length > 2) {
+      breakdown[piece[1]] = piece[2];
+    }
+  }
+
+  function digestAuthResponse(breakdown, password, req, res, next) {
+//
+// construct a response
+//
+    var crypto = require("crypto");
+    var HA1 = crypto.createHash("md5").update(breakdown.username + ":" + breakdown.realm + ":" + password, "utf8").digest("hex");
+    var HA2 = crypto.createHash("md5").update(req.method + ":" + breakdown.uri, "utf8").digest("hex");
+    var check_response = crypto.createHash("md5").update(HA1 + ":" + breakdown.nonce + ":" + breakdown.nc + ":" + breakdown.cnonce + ":" + breakdown.qop + ":" + HA2, "utf8").digest("hex");
+
+//
+// check constructed response against the passed response
+//
+    if (check_response != breakdown.response) {
+console.log("FAILED");
+      unauthorizedDigest(res, breakdown.realm);
+    }
+
+//
+// set the user in the request
+// 
+    req.user = req.remoteUser = breakdown.username;
+    next();
+  };
+
+//
+// use the callback to determine the password to use
+//
+  if (typeof config.digestAuth == "function"){
+    var callback = config.digestAuth;
+    digestAuthResponse(breakdown, callback(username), req, res, next);
+  } else {
+    var querystring = require("querystring");
+    var post_data = querystring.stringify({
+      "user_name" : breakdown.username 
+    });
+    var parsedURI = url.parse(config.authServerUrl);
+    var post_options = {
+      host: parsedURI.hostname,
+      port: parsedURI.port,
+      path: parsedURI.path,
+      method: "POST", 
+      rejectUnauthorized: false,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Length": post_data.length
+      }
+    };
+    var https_auth = require("https");
+    var post_req = https_auth.request(post_options, function(post_res) {
+      post_res.setEncoding('utf8');
+      var msg = "";
+      post_res.on('data', function (chunk) {
+        msg += chunk;
+      });
+      post_res.on("end", function () {
+        msg = JSON.parse(msg);
+        if (!msg) {
+          unauthorizedDigest(res, breakdown.realm);
+        }
+        digestAuthResponse(breakdown, msg.user_pass, req, res, next);
+      });
+    });
+
+    post_req.write(post_data);
+
+    post_req.end();
+
+    post_req.on('error', function(e) { 
+console.trace(e);
+    });
+  }
+
 };
 
 function errorFn(req, res, next, callback) {
@@ -457,8 +622,9 @@ console.log(startStamp + " " + "Discovery Request by " + config.provider.user + 
 $data.createODataServer = function(config) {
 
   var bannerWidth = 78;
+  var bannerText;
   function bannerTop() {
-    var bannerText = ".";
+    bannerText = ".";
     for (var i = bannerWidth; i--;) {
       bannerText += "-";
     }
@@ -466,7 +632,7 @@ $data.createODataServer = function(config) {
 console.log(bannerText);
   }
   function bannerSpacer() {
-    var bannerText = "|";
+    bannerText = "|";
     for (var i = bannerWidth; i--;) {
       bannerText += "-";
     }
@@ -477,7 +643,7 @@ console.log(bannerText);
     if (!text) {
       text = "";
     }
-    var bannerText = "| " + text;
+    bannerText = "| " + text;
     for (var i = (bannerWidth-text.length-1); i--;) {
       bannerText += " ";
     }
@@ -485,7 +651,7 @@ console.log(bannerText);
 console.log(bannerText);
   }
   function bannerBottom() {
-    var bannerText = "'";
+    bannerText = "'";
     for (var i = bannerWidth; i--;) {
       bannerText += "-";
     }
@@ -522,13 +688,25 @@ console.log(bannerText);
       break;
     default:
       bannerLine("- No Authentication is being used");
-  }
+  };
 
+  if (config.authServerUrl) {
+    config.basicAuth = null;
+    config.digestAuth = null;
+    bannerLine("- Accounts are maintained externally and accessed using:");
+    bannerLine("  > " + config.authServerUrl);
+  } else {
+    bannerLine("- Account information is maintained within the server");
+  };
+  if (config.oauth2ServerUrl) {
+    bannerLine("- Requests validated with OAuth2 Server using:");
+    bannerLine("  > " + config.oauth2ServerUrl);
+  }
   if (config.compression) {
-    bannerLine("- Output will ALWAYS be compressed if the requestor can handle compression");
+    bannerLine("- Output will ALWAYS be compressed if the requestor supports compression");
   } else {
     bannerLine("- Output will NEVER be compressed");
-  }
+  };
   bannerBottom();
 
 //
@@ -753,136 +931,6 @@ console.log(bannerText);
 
 module.exports = exports = $data.ODataServer;
 
-function digestAuth(config, req, res, realm, next) {
-  var callback = config.digestAuth;
-  var authorization = req.headers.authorization;
-
-  if (req.user) return next();
-  if (!authorization) return unauthorizedDigest(res, realm);
-
-//
-// Determine if Bearer authorization header is sent
-//
-  var parts = authorization.split(" ");
-  if (parts[0] !== "Digest") {
-    if (parts[0] == "Bearer") {
-      return bearerFn(config, parts, req, res, next);
-    } else {
-      return unauthorizedDigest(res, realm);
-    }
-  }
-
-//
-// determine if the correct number of arguments is in the Digest header
-//
-  var pos = authorization.indexOf(" ");
-  authorization = authorization.substring(pos);
-  var parts = authorization.split(",");
-  if (parts.length !== 8) {
-    return unauthorizedDigest(res, realm);
-  }
-
-//
-// breakdown the header
-//
-  var username;
-  var realm;
-  var nonce;
-  var uri;
-  var response;
-  var qop;
-  var nc;
-  var cnonce; 
-  for (var i = parts.length; i--;) {
-    var pieces = parts[i].split("=");
-    switch(pieces[0].trim()) {
-      case "username":
-        username = pieces[1].replace(/["']/g, "");
-        break;
-      case "realm":
-        realm = pieces[1].replace(/["']/g, "");
-        break;
-      case "nonce":
-        nonce = pieces[1].replace(/["']/g, "");
-        break;
-      case "uri":
-        uri = pieces[1].replace(/["']/g, "");
-        break;
-      case "response":
-        response = pieces[1].replace(/["']/g, "");
-        break;
-      case "qop":
-        qop = pieces[1].replace(/["']/g, "");
-        break;
-      case "nc":
-        nc = pieces[1].replace(/["']/g, "");
-        break;
-      case "cnonce":
-        cnonce = pieces[1].replace(/["']/g, "");
-        break;
-    }
-  }
-
-//
-// use the callback to determine the password to use
-//
-  var password = callback(username);
-//console.log("PASSWORD: " + password);
-
-//
-// construct a response
-//
-//  var A1 = username + ":" + realm + ":" + password;
-//console.log(A1);
-//  var HA1 = md5(A1);
-//  var A2 = req.method + ":" + uri;
-//console.log(A2);
-//  var HA2 = md5(A2);
-//  var check_response = HA1 + ":" + nonce + ":" + nc + ":" + cnonce + ":" + qop + ":" + HA2;
-//console.log(check_response);
-//  check_response = md5(check_response);
-
-  var HA1 = crypto.createHash("md5").update(username + ":" + realm + ":" + password, "utf8").digest("hex");
-  var HA2 = crypto.createHash("md5").update(req.method + ":" + uri, "utf8").digest("hex");
-  var check_response = crypto.createHash("md5").update(HA1 + ":" + nonce + ":" + nc + ":" + cnonce + ":" + qop + ":" + HA2, "utf8").digest("hex");
-//  var HA1 = md5(username + ":" + realm + ":" + password);
-//  var HA2 = md5(req.method + ":" + uri);
-//  var check_response = md5(HA1 + ":" + nonce + ":" + nc + ":" + cnonce + ":" + qop + ":" + HA2);
-
-//
-// check constructed response against the passed response
-//
-//console.log(check_response);
-//console.log(response);
-  if (check_response != response) {
-console.log("FAILED");
-    unauthorizedDigest(res, realm);
-  }
-
-//
-// set the user in the request
-// 
-  req.user = req.remoteUser = username;
-
-//
-// move on
-//
-  next();
-};
-
-function unauthorizedDigest(res, realm) {
-  res.statusCode = 401;
-  res.setHeader("WWW-Authenticate", 'Digest realm="' + realm + '", nonce="' + nonce + '", qop=auth');
-  res.end("Unauthorized");
-};
-
-//function md5(str, encoding){
-//  return crypto
-//    .createHash('md5')
-//    .update(str, 'utf8')
-//    .digest(encoding || 'hex');
-//};
-
 function readIndexFile(fileName) {
   if (fs.existsSync(fileName)) {
     var contents = fs.readFileSync(fileName).toString();
@@ -890,3 +938,4 @@ function readIndexFile(fileName) {
   }
   return new Array();
 }
+    

@@ -44,7 +44,11 @@ console.log("Using configuration file " + aConfigFile);
                 aValue = true;
                 break;
               default:
-                aValue = data[1].trim();
+                aValue = data[1]
+                for( var j = 2; j < data.length; j++){
+                  aValue += ":" + data[j]
+                }
+                aValue = aValue.trim();
             }
             userConfig[data[0]] = aValue;
           }
@@ -85,6 +89,9 @@ function startServer(userConfig) {
       authType: userConfig["AUTH_TYPE"],
       authRealm: userConfig["AUTH_REALM"],
       basicAuth: function(username, password){
+        if (!password) {
+          return false;
+        }
         if (password == lookupUserPassword(username)) {
           return true;
         }
@@ -109,6 +116,8 @@ console.dir(entitySets[0].name);
       logEntry: userConfig["LOG_ENTRY"],
       metadata: systemMetadata, 
       path: "/"+userConfig["SERVER_PATH"], 
+      authServerUrl: userConfig["AUTH_SERVER_URL"], 
+      oauth2ServerUrl: userConfig["OAUTH2_SERVER_URL"], 
       port: userConfig["SERVER_PORT"],
       postProcess: function(method, reso){
         switch (method) {

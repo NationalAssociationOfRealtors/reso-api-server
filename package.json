@@ -1,7 +1,7 @@
 {
   "name": "reso-api-server",
   "description": "RESO API Server",
-  "version": "0.1.35",
+  "version": "0.1.36",
   "homepage": "http://blogs.crt.realtors.org",
   "author": {
     "name": "Center for REALTOR Technology",
@@ -26,8 +26,8 @@
     "just.randomstring": "0.1.1",
     "mongodb": "1.4.8",
     "q": "0.8.5",
-    "qs": "1.2.0",
-    "url": "0.10.1",
+    "qs": "2.2.4",
+    "querystringt": "1.0.3",
     "xmldom": "0.1.11"
   },
   "contributors": [

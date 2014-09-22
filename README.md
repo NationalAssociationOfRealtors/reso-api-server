@@ -20,7 +20,6 @@ The following procedure should be followed to setup the server:
   npm install reso-api-server
  ```
  
-
 + Create a metadata directory and create metadata if you do not want to you the package approach.  You can use the sample file provided in the distribution::
 
  ```shell
@@ -100,6 +99,8 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
  AUTH\_REALM: The text to use for realm if using Digest Authentication. If this parameter is not included, the realm will default to the string in the SERVER\_NAME parameter. This value is only required if the AUTH\_TYPE is "Digest". 
   
  AUTH\_TYPE: The type of authentication supported by the RESO API Server.  Valid values are "Basic" and "Digest".
+
+ AUTH\_SERVER\_URL: The url of the authentication server that will be used to pass a user name and return a password.
 
 + OAuth2 Service
 
