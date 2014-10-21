@@ -232,9 +232,9 @@ console.log("FAILED");
 //
 // use the callback to determine the password to use
 //
-  if (typeof config.digestAuth == "function"){
+  if (typeof config.digestAuth == 'function'){
     var callback = config.digestAuth;
-    digestAuthResponse(breakdown, callback(username), req, res, next);
+    digestAuthResponse(breakdown, callback(breakdown.username), req, res, next);
   } else {
     var querystring = require("querystring");
     var post_data = querystring.stringify({
@@ -414,88 +414,87 @@ console.log("Consider increasing PROCESS_WAIT configuration value");
         config.provider.checkPermission = req.checkPermission;
       }
 
-/*
-        if (req.method === 'OPTIONS') {
+      if (req.method === 'OPTIONS') {
 console.log('!OPTIONS');
-          var headers = {};
+        var headers = {};
 // IE8 does not allow domains to be specified, just the *
-          headers["Access-Control-Allow-Origin"] = req.headers.origin;
-          headers["Access-Control-Allow-Methods"] = "HEAD,POST,GET,OPTIONS,PUT,MERGE,DELETE";
-          headers["Access-Control-Allow-Headers"] = "Host,Accept-Language,Accept-Encoding,Connection,User-Agent,Origin,Cache-Control,Pragma,X-Requested-With,X-HTTP-Method-Override,X-PINGOTHER,Content-Type,MaxDataServiceVersion,DataServiceVersion,Authorization,Accept";
-          headers["Access-Control-Allow-Credentials"] = "false";
-//          headers["Access-Control-Max-Age"] = '86400'; // 24 hours
-//          headers["Access-Control-Max-Age"] = "31536000";
-//          headers["Cache-Control"] = "max-age=31536000";
-          headers["Access-Control-Max-Age"] = "1";
-          headers["Cache-Control"] = "max-age=1";
-          res.writeHead(200, headers);
-          res.end();
-        } else {
+        headers["Access-Control-Allow-Origin"] = req.headers.origin;
+        headers["Access-Control-Allow-Methods"] = "HEAD,POST,GET,OPTIONS,PUT,MERGE,DELETE";
+        headers["Access-Control-Allow-Headers"] = "Host,Accept-Language,Accept-Encoding,Connection,User-Agent,Origin,Cache-Control,Pragma,X-Requested-With,X-HTTP-Method-Override,X-PINGOTHER,Content-Type,MaxDataServiceVersion,DataServiceVersion,Authorization,Accept";
+        headers["Access-Control-Allow-Credentials"] = "false";
+//        headers["Access-Control-Max-Age"] = '86400'; // 24 hours
+//        headers["Access-Control-Max-Age"] = "31536000";
+//        headers["Cache-Control"] = "max-age=31536000";
+        headers["Access-Control-Max-Age"] = "1";
+        headers["Cache-Control"] = "max-age=1";
+        res.writeHead(200, headers);
+        res.end();
+      } else {
         res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
         res.setHeader("Access-Control-Allow-Headers", "Host,Accept-Language,Accept-Encoding,Referer,Connection,User-Agent,Origin,Cache-Control,Pragma,x-requested-with,X-HTTP-Method-Override,X-PINGOTHER,Content-Type,MaxDataServiceVersion,DataServiceVersion,Authorization,Accept");
         res.setHeader("Access-Control-Allow-Methods", "HEAD,POST,GET,OPTIONS,PUT,MERGE,DELETE");
         res.setHeader('Access-Control-Allow-Credentials', "false");
-//        res.setHeader("Access-Control-Max-Age", "31536000");
-//        res.setHeader("Cache-Control", "max-age=31536000");
+//      res.setHeader("Access-Control-Max-Age", "31536000");
+//      res.setHeader("Cache-Control", "max-age=31536000");
         res.setHeader("Access-Control-Max-Age", "1");
         res.setHeader("Cache-Control", "max-age=1");
-*/
 
-      function processFn(req, res, next) {
-        config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
-        if (endPointURL != "/$batch") {
-          if (config.logEntry) {
+        function processFn(req, res, next) {
+          config.provider.user = config.user = req.user || req.remoteUser || config.user || config.provider.user || "anonymous";
+          if (endPointURL != "/$batch") {
+            if (config.logEntry) {
 console.log(startStamp + " " + "Request " + req.method + " " + endPointURL + " by " + config.provider.user + " received from " + req.connection.remoteAddress); 
-          }     
+            }     
+          }
+
+          preProcessFn(req, res, function(){
+//            simpleBodyFn(req, res, function(){
+            $data.JayService.OData.Utils.simpleBodyReader()(req, res, function() { 
+              errorFn(req, res, next, function(){
+                req.reso = {
+                  "externalIndex" : config.externalIndex, 
+                  "startTime": startStamp.getTime(),
+                  "userName" : config.provider.user 
+                }
+                $data.JayService.createAdapter(
+                  serviceType, 
+                  function() {
+                    return new serviceType(config.provider);
+                  }
+                ).call(
+                    self, 
+                    req, 
+                    res, 
+                    function(err) {
+                      if (typeof err === "string") {
+                        err = new Error(err);
+                      }
+                      errorHandlerFn(err, req, res, next);
+                    }
+                          
+                );
+                postProcessFn(req, res);
+              }); // errorFn
+            }); // simpleBodyFn
+          }); // preProcessFn
         }
 
-        preProcessFn(req, res, function(){
-//          simpleBodyFn(req, res, function(){
-          $data.JayService.OData.Utils.simpleBodyReader()(req, res, function() { 
-            errorFn(req, res, next, function(){
-              req.reso = {
-                "externalIndex" : config.externalIndex, 
-                "startTime": startStamp.getTime(),
-                "userName" : config.provider.user 
-              }
-              $data.JayService.createAdapter(
-                serviceType, 
-                function() {
-                  return new serviceType(config.provider);
-                }
-              ).call(
-                  self, 
-                  req, 
-                  res, 
-                  function(err) {
-                    if (typeof err === "string") {
-                      err = new Error(err);
-                    }
-                    errorHandlerFn(err, req, res, next);
-                  }
-                          
-              );
-              postProcessFn(req, res);
-            }); // errorFn
-          }); // simpleBodyFn
-        }); // preProcessFn
-      };
-
-      switch(config.authType) {
-        case "Basic":
-          basicAuthFn(config, req, res, function(){
+        switch(config.authType) {
+          case "Basic":
+            basicAuthFn(config, req, res, function(){
+              processFn(req, res, next);
+            }); // basicAuthFn
+            break
+          case "Digest":
+            digestAuthFn(config, req, res, function(){
+              processFn(req, res, next);
+            }); // digestAuthFn
+            break
+          default:
             processFn(req, res, next);
-          }); // basicAuthFn
-          break
-        case "Digest":
-          digestAuthFn(config, req, res, function(){
-            processFn(req, res, next);
-          }); // digestAuthFn
-          break
-        default:
-          processFn(req, res, next);
-      } // switch authType
-    }; // return
+        } // switch authType
+      } // return
+    } // not method OPTIONS
 };
 
 //
