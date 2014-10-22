@@ -72,6 +72,8 @@ function basicAuthFn(config, req, res, next){
   }
 
   var authorization = req.headers.authorization;
+  if (!authorization) return unauthorizedBasic(res);
+
 //
 // Determine if Bearer authorization header is sent
 //
@@ -604,7 +606,7 @@ console.log(startStamp + " " + "Discovery Request by " + config.provider.user + 
         break
       case "Digest":
         digestAuthFn(config,req, res, function(){
-          processFnx(req, res, next);
+          processFn(req, res, next);
         });
         break
       default:
