@@ -6,7 +6,7 @@ The RESO API Server provides a basic server that supports the OData protocol as 
 
 ### Operation
 
-The RESO API Server can be run from the command line using a file created to customize operation.  The server supports both a DataService endpoint (used for discovery) as well as a Resource endpoint.  
+The RESO API Server can be run from the command line using a file created to customize operation.  The server supports both a DataService endpoint (used for discovery) as well as a Resource endpoint.  Information is stored in a local repository by default.  The server can be alternatively by configured to use a RESO Certified RETS 1.X server as a repository.  
 
 The **Setup** section provides a step-by-step guide getting the server installed.  Please use information outlined in the **Configuration** section to create the configuration file.
 
@@ -76,9 +76,11 @@ RESO updates the RESO Data Dictionary periodically. A copy of the latest known R
 
 + Data Processing 
 
- EXTERNAL\_INDEX: A boolean value that indicates whether an external index (recommended) is being used to enfoce uniqueness or the underlying MongoDB database indexing will be used.  Only MongoDB collections that do not use GUID as a key are affected.
+ EXTERNAL\_INDEX: A boolean value that indicates whether an external index (recommended) is being used to enfoce uniqueness or the underlying MongoDB database indexing will be used.  Only MongoDB collections that do not use GUID as a key are affected.  This setting is only valid for local data repositories.  If the server is configured to use a RETS server as its repository (by configuring a LEGACY\_SOURCE\_URL), this setting is ignored.
 
- LOG\_ENTRY: A boolean value that indicates whether a console log message is generated each time a request is processed.  This produces more output at the console, but allerts you when there is activity. Defaults ot "false".
+ LEGACY\_SOURCE\_URL: A string that represents the URL of a RESO Certified RETS 1.X server.  The URL should start with the protocol and include the port number because the server will not assume the default port of 6103.  An example of an expected URL would be "http://some.mls.service.com:6103".  If LEGACY\_SOURCE\_URL is set, the setting for EXTERNAL\_INDEX is ignored.
+
+ LOG\_ENTRY: A boolean value that indicates whether a console log message is generated each time a request is processed.  This produces more output at the console, but alerts you when there is activity. Defaults ot "false".
 
  METADATA\_DEFINITION: The path to the file for the JSON formatted OData definition file that contains RESO Data Dictionary definitions.  If this parameter is not included, the server will try to look for the package "reso-data-dictionary" which should be included from your root project directory.
 

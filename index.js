@@ -316,16 +316,30 @@ function errorHandlerFn(config, err, req, res, next) {
 $data.ODataServer = function(config){
 
     config.database = config.type.name;
-    config.provider = {
-      name: "mongoDB",
-      databaseName: config.type.name,
-      address: config.databaseAddress,
-      port: config.databasePort,
-      responseLimit: config.responseLimit || 100,
-      user: config.user,
-      checkPermission: config.checkPermission,
-      externalIndex: config.externalIndex
-    };
+    if (config.legacySourceUrl) {
+//      var parsedLegacyUrl = url.parse(config.legacySourceUrl);
+//      protocol: parsedLegacyUrl.protocol,
+//      host: parsedLegacyUrl.hostname,
+//      port: parsedLegacyUrl.port,
+//      path: parsedLegacyUrl.path,
+      config.provider = {
+        name: "libRETS",
+        address: config.legacySourceUrl,
+        user: "admin",
+        password: "admin" 
+      };
+    } else {
+      config.provider = {
+        name: "mongoDB",
+        databaseName: config.type.name,
+        address: config.databaseAddress,
+        port: config.databasePort,
+        responseLimit: config.responseLimit || 100,
+        user: config.user,
+        checkPermission: config.checkPermission,
+        externalIndex: config.externalIndex
+      };
+    }
     var serviceType = $data.Class.defineEx(config.type.fullName + ".Service", [config.type, $data.ServiceBase]);
     serviceType.annotateFromVSDoc();
 
@@ -830,101 +844,112 @@ console.log(bannerText);
     bannerSpacer();
 
 //
+// use a RETS server through libRETS otherwise use a local MongoDb repository
+//
+    if (config.legacySourceUrl) {
+      bannerLine("- RESO Certified RETS Server contains listings");
+      bannerLine("  > URL: " + config.legacySourceUrl);
+      bannerLine("- Using libRETS for communications");
+      startup();
+    } else {
+      bannerLine("- Local repository requires indexing");
+//
 // no need to apply special indexing if all collections use guid 
 //
-    function isEmptyObject(obj) {
-      for(var prop in obj) {
-        if (Object.prototype.hasOwnProperty.call(obj, prop)) {
-          return false;
+      function isEmptyObject(obj) {
+        for(var prop in obj) {
+          if (Object.prototype.hasOwnProperty.call(obj, prop)) {
+            return false;
+          }
         }
+        return true;
       }
-      return true;
-    }
-    if (isEmptyObject(indexList)) {
-      bannerLine("- No special indexing is required");
-      startup();
-    }
+      if (isEmptyObject(indexList)) {
+        bannerLine("- No special indexing is required");
+        startup();
+      }
 
 //
 // process collections that don't use default guid as key
 //
-    for (cName in indexList) {
-      var cObject = {};
-      var cKey = indexList[cName];
-      cObject[cKey] = 1;
-      bannerLine("- Indexing " + cName);
-      var collection = db.collection(cName);
+      for (cName in indexList) {
+        var cObject = {};
+        var cKey = indexList[cName];
+        cObject[cKey] = 1;
+        bannerLine("- Indexing " + cName);
+        var collection = db.collection(cName);
 
 //
 // external index feature needs conflicting index removed and a scan of keys
 //
-      if (config.externalIndex) {
-        collection.indexInformation({full:true}, function(err, indexInformation) {
+        if (config.externalIndex) {
+          collection.indexInformation({full:true}, function(err, indexInformation) {
           var dropList = [];
           for (var i = indexInformation.length; i--;) {
             var anIndex = indexInformation[i];
             if (anIndex.unique) {
 //console.dir(anIndex);
-              var found = false;
-              for (cIndexKey in anIndex.key) {
-                if (cIndexKey == cKey) {
-                  found = true;
+                var found = false;
+                for (cIndexKey in anIndex.key) {
+                  if (cIndexKey == cKey) {
+                    found = true;
+                  }
                 }
-              }
-              if (found) {
-                dropList[dropList.length] = anIndex.key;
+                if (found) {
+                  dropList[dropList.length] = anIndex.key;
+                }
               }
             }
-          }
-          function scanAndCreate(aDefinition) {
-            collection.find({},aDefinition).toArray(function(err, docs) {
+            function scanAndCreate(aDefinition) {
+              collection.find({},aDefinition).toArray(function(err, docs) {
 //console.dir(docs);
-              if (err) throw err;
-              INDEX = [];
-              for (var j = docs.length; j--;) {
-                INDEX[j] = docs[j].ListingId;
-              }
-              bannerLine("  > An in-memory index for " + cName + " has been created with " + docs.length + " items");
-              if (i < 0) {
-                startup();
-              }
-            });
-          };
-          if (dropList.length == 0) {
-            scanAndCreate(cObject);
-          } else {
-            for (var i = dropList.length; i--;) {
-              db.dropIndex(cName, dropList[i], function(err, result) {
-                if (!err) {
-                  bannerLine("  > Conflicting built-in index was dropped");
+                if (err) throw err;
+                INDEX = [];
+                for (var j = docs.length; j--;) {
+                  INDEX[j] = docs[j].ListingId;
+                }
+                bannerLine("  > An in-memory index for " + cName + " has been created with " + docs.length + " items");
+                if (i < 0) {
+                  startup();
                 }
               });
-              scanAndCreate(dropList[i]);
-            } // dropList loop
-          } // dropList.length == 0
-        }); // collection.indexInformation
-      } else {
+            };
+            if (dropList.length == 0) {
+              scanAndCreate(cObject);
+            } else {
+              for (var i = dropList.length; i--;) {
+                db.dropIndex(cName, dropList[i], function(err, result) {
+                  if (!err) {
+                    bannerLine("  > Conflicting built-in index was dropped");
+                  }
+                });
+                scanAndCreate(dropList[i]);
+              } // dropList loop
+            } // dropList.length == 0
+          }); // collection.indexInformation
+        } else {
 //
 // builtin-in index must be present
 //
-        bannerLine("  > Uniqueness enforced with built-in index");
-        collection.ensureIndex(cObject, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
-          if (err) throw err;
-          if (!indexName) {
-            bannerLine("  > Built-in index for " + cName + " was not found and was automatically created");
-          }
-// Fetch full index information
-          collection.indexInformation({full:true}, function(err, indexInformation) {
-//          db.indexInformation(cName, {full:true}, function(err, indexInformation) {
-            for (var i = indexInformation.length; i--;) {
-              if (indexInformation[i].name != "_id_") {
-                bannerLine("  > Built-in index name for " + cName + " is " + indexInformation[i].name);
-              }
+          bannerLine("  > Uniqueness enforced with built-in index");
+          collection.ensureIndex(cObject, {unique:true, background:true, dropDups:true, w:0}, function(err, indexName) {
+            if (err) throw err;
+            if (!indexName) {
+              bannerLine("  > Built-in index for " + cName + " was not found and was automatically created");
             }
-            startup();
-          });
-        }); // collection.ensureIndex
-      } // if config.externalIndex
+// Fetch full index information
+            collection.indexInformation({full:true}, function(err, indexInformation) {
+//            db.indexInformation(cName, {full:true}, function(err, indexInformation) {
+              for (var i = indexInformation.length; i--;) {
+                if (indexInformation[i].name != "_id_") {
+                  bannerLine("  > Built-in index name for " + cName + " is " + indexInformation[i].name);
+                }
+              }
+              startup();
+            });
+          }); // collection.ensureIndex
+        } // if config.externalIndex
+      } // if local repopsitory 
     } // indexDriver
   }); // db.open
 
