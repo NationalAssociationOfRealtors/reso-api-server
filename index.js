@@ -317,14 +317,15 @@ $data.ODataServer = function(config){
 
     config.database = config.type.name;
     if (config.legacySourceUrl) {
-//      var parsedLegacyUrl = url.parse(config.legacySourceUrl);
+      var parsedLegacyUrl = url.parse(config.legacySourceUrl);
 //      protocol: parsedLegacyUrl.protocol,
 //      host: parsedLegacyUrl.hostname,
-//      port: parsedLegacyUrl.port,
+//      port: parsedLegacyUrl.port parsedLegacyUrl.port,
 //      path: parsedLegacyUrl.path,
       config.provider = {
         name: "libRETS",
-        address: config.legacySourceUrl,
+        address:  parsedLegacyUrl.protocol + "//" + parsedLegacyUrl.hostname,
+        port:  parsedLegacyUrl.port,
         user: "admin",
         password: "admin" 
       };
