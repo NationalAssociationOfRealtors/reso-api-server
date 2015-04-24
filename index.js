@@ -446,7 +446,9 @@ console.log('!OPTIONS');
         res.writeHead(200, headers);
         res.end();
       } else {
-        res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+        if (req.headers.origin) {
+          res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+        }
         res.setHeader("Access-Control-Allow-Headers", "Host,Accept-Language,Accept-Encoding,Referer,Connection,User-Agent,Origin,Cache-Control,Pragma,x-requested-with,X-HTTP-Method-Override,X-PINGOTHER,Content-Type,MaxDataServiceVersion,DataServiceVersion,Authorization,Accept");
         res.setHeader("Access-Control-Allow-Methods", "HEAD,POST,GET,OPTIONS,PUT,MERGE,DELETE");
         res.setHeader('Access-Control-Allow-Credentials', "false");
@@ -472,6 +474,10 @@ console.log(startStamp + " " + "Request " + req.method + " " + endPointURL + " b
                   "startTime": startStamp.getTime(),
                   "userName" : config.provider.user 
                 }
+//console.dir(serviceType);
+//junk = new serviceType(config.provider);
+//console.dir(junk);
+
                 $data.JayService.createAdapter(
                   serviceType, 
                   function() {
